@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>MLDB Classifier UI</title>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+        
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+<!--
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/themes/smoothness/jquery-ui.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/jquery-ui.min.js"></script>
+-->
+    <script type="text/javascript">
+$(function() {
+
+    var plugin_prefix = "http://bluekai.ec2.datacratic.com:2361/v1/plugins/cls"
+
+    var loadDatasets = function() {
+        // get plugin name
+        $.ajax({
+            url: plugin_prefix + "/routes/dataset-details",
+            dataType: "json",
+            error: function (jqXHR, textStatus, errorThrown) {
+                    alert("Unable to load datasets: " + jqXHR.status + textStatus);
+                  },
+            success: function(data) {
+
+                var dropdown = $("#datasetId");
+                dropdown.find('option').remove();
+                $.each(data, function() {
+                    dropdown.append($("<option />").val(this.id).text(this.id+" <type:"+this.type+", rowCount:"+this.rowCount+">"));
+                });
+            }
+        });
+    };
+    $("#datasetDropDownRefreshBtn").click(function() {
+        loadDatasets();
+    });
+
+    var clsPresets = {};
+    var loadClsPresets = function() {
+        $.ajax({
+            url: plugin_prefix + "/routes/cls-presets",
+            dataType: "json",
+            error: function (jqXHR, textStatus, errorThrown) {
+                    alert("Unable to load cls presets: " + jqXHR.status + textStatus);
+                  },
+            success: function(data) {
+                var dropdown = $("#algo");
+                dropdown.find('option').remove();
+                for(var key in data) {
+                    clsPresets[key] = JSON.stringify(data[key],null,4);
+                    dropdown.append($("<option />").val(key).text(key));
+                };
+
+                dropdown.change(function() {
+                    var key = $("#algo option:selected").val();
+                    $("#algoConf").val(clsPresets[key]);
+                });
+            }
+        });
+    }
+
+
+    // json validation
+    var validAlgoConfJson = function() {
+        if($('#algoConf').val().length == 0) {
+            $('#algoConf').removeClass("alert-danger");
+            $('#algoConf').removeClass("alert-success");
+            return false;
+        }
+
+        try {            
+            $.parseJSON($('#algoConf').val());
+            $('#algoConf').removeClass("alert-danger");
+            $('#algoConf').addClass("alert-success");
+            return true;
+        } catch (err) {
+            $('#algoConf').addClass("alert-danger");
+            $('#algoConf').removeClass("alert-success");
+            return false;
+        }
+    };
+    $('#algoConf').bind('input propertychange', validAlgoConfJson);
+
+    $("#createButton").click(function() {
+        if(!validAlgoConfJson()) {
+            alert("Must have a valid algorithm configuration to create a pipeline");
+            return false;
+        }
+                    
+        var dataset = $("#datasetId option:selected").val();
+        if(dataset === undefined) {
+            alert("Must have a dataset selected");
+            return false;
+        }
+
+
+        var addKey = function(blob, formId, blobKey, name, optional, fnct) {
+            console.log("#"+formId);
+            var val = $("#"+formId).val();
+            if(val === undefined || val == "") {
+                if(optional) return true;
+                alert("Form field '"+name+"' is mandatory");
+                return false;
+            }
+
+            if(fnct != undefined) {
+                val = fnct(val);
+            }
+            blob[blobKey] = val;
+            return true;
+        }
+
+        
+        var blob = {
+            "type": "classifier",
+            "params": {
+                "dataset": {"id": dataset}
+            }
+        };
+
+        addKey(blob, "inputId", "id", "Pipeline ID", false);
+        addKey(blob["params"], "selectExpr", "select", "Select expression", false);
+        addKey(blob["params"], "whereExpr", "where", "Where expression", false);
+        addKey(blob["params"], "labelExpr", "label", "Label expression", true);
+        addKey(blob["params"], "algoConf", "configuration", "Algorithm configuration", true, JSON.parse);
+        addKey(blob["params"], "eqFactor", "equalizationFactor", "Equalization factor", false, parseFloat);
+        addKey(blob["params"], "task", "mode", "Task", true);
+
+        $.ajax({
+            url: 'http://bluekai.ec2.datacratic.com:2361/v1/pipelines/'+blob["id"],
+            type: 'PUT',
+            data: JSON.stringify(blob),
+            contentType: "application/json",
+            dataType: "json",
+            success: function(data) {
+                alert("Creation successful");
+                // on success, switch to existing list
+                $.navBarButton("existingClsBtn");
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.log(jqXHR);
+                alert("Error when posting config: " + jqXHR.status + textStatus);
+            },
+        });
+        console.log(blob);
+    });
+
+    $.navBarButton = function(button) {
+
+        if(button == "existingClsBtn") {
+            $.refreshClsList();
+        }
+
+        if($("#"+button).hasClass("active"))
+            return;
+
+        $("#existingClsBtn").toggleClass("active");
+        $("#newClsBtn").toggleClass("active");
+        $("#existingPipeline").toggleClass("hidden");
+        $("#newPipeline").toggleClass("hidden");
+    };
+
+    $.newRun = function(pipeline, num_runs) {
+        var newId = num_runs + 1;
+        var url = 'http://bluekai.ec2.datacratic.com:2361/v1/pipelines/'+pipeline+'/runs/'+newId;
+        console.log(url);
+        $.ajax({
+            url: url,
+            type: 'PUT',
+            data: '{}',
+            headers: JSON.stringify({"async": true}), // TODO does not work 
+            contentType: "application/json",
+            dataType: "json",
+            success: function(data) {
+                alert('Run submitted');
+                $.refreshClsList();
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.log(jqXHR);
+                alert("Error when posting run: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
+                $.refreshClsList();
+            },
+        });
+    };
+
+    $.deletePipeline = function(pipeline) {
+    //    print mldb.perform("DELETE", "/v1/pipelines/titanic_prob_train_%s" % cls_algo, [], {})
+        var url = 'http://bluekai.ec2.datacratic.com:2361/v1/pipelines/'+pipeline;
+        console.log(url);
+        $.ajax({
+            url: url,
+            type: 'DELETE',
+            data: "{}",
+            contentType: "application/json",
+            dataType: "json",
+            success: function(data) {
+                $.refreshClsList();
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.log(jqXHR);
+                alert("Error when deleting pipeline: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
+                $.refreshClsList();
+            },
+        });
+    }
+
+    $.refreshClsList = function() {
+        $("#existingClsListBody").empty();
+        $.ajax({
+            url: plugin_prefix + "/routes/classifier-list",
+            dataType: "json",
+            error: function (jqXHR, textStatus, errorThrown) {
+                    console.log(jqXHR);
+                    alert("Unable to load classifier list: " + jqXHR.status + textStatus);
+                  },
+            success: function(data) {
+                var clsList = $("#existingClsListBody");
+                $.each(data, function() {
+                    var newElem = "<tr id=\"run"+this.id+"\">";
+                    newElem += "<td>"+this.id+"</td>";
+                    newElem += "<td>"+this.state+"</td>";
+                    newElem += "<td>"+this.params.configuration.type+"</td>";
+                    newElem += "<td>"+this.params.dataset.id+"</td>";
+                    newElem += "<td>"+this.runs.length+"</td>";
+
+                    var lastRun = this.runs.length == 0 ? "Never" : this.last_run.state
+                    newElem += "<td>"+lastRun+"</td>";
+
+                    newElem += '<td><button class="btn btn-primary btn-sm" onClick="$.newRun(\''+this.id+'\', '+this.runs.length+');"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>';
+                    newElem += '<button class="btn btn-primary btn-sm" onClick="$.viewRuns(\''+this.id+'\');"><span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span> Details</button>';
+                    newElem += '<div class="btn-group"><button class="btn btn-danger btn-sm dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete <span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a href="#" onClick="$.deletePipeline(\''+this.id+'\');">Confirm</a></li></ul></div>';
+                    newElem += "</td></tr>";
+                    clsList.append(newElem);
+                });
+            }
+        });
+    };
+
+    //loadDatasets();    
+    loadClsPresets();
+
+});
+   </script>
+    </head>
+    <body>
+ <div class="container">
+<nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="#">MLDB Classifier UI</a>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <ul class="nav navbar-nav">
+        <li class="active" id="existingClsBtn">
+            <a href="#" onclick="$.navBarButton('existingClsBtn');">Existing <span class="sr-only">(current)</span></a>
+        </li>
+        <li id="newClsBtn">
+            <a href="#" onclick="$.navBarButton('newClsBtn');">New</a>
+        </li>
+      </ul>
+    </div><!-- /.navbar-collapse -->
+  </div><!-- /.container-fluid -->
+</nav>
+<span id="existingPipeline">
+<h1>Existing classifiers</h1>
+
+<table class="table" id="existingClsList">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Algo</th>
+        <th>Dataset</th>
+        <th>Runs</th>
+        <th>Last Run</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody id="existingClsListBody">
+    </tbody>
+</table>
+
+<button onclick="$.refreshClsList();">Refresh</button>
+
+</span>
+
+
+
+<span id="newPipeline" class="hidden">
+<h1>New classifier</h1>
+
+<form>
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <h3 class="panel-title">General</h3>
+  </div>
+  <div class="panel-body">
+
+      <div class="form-group">
+        <label for="inputId">Classifier ID</label>
+        <input type="text" class="form-control" id="inputId" placeholder="Pipeline ID">
+      </div>
+      <div class="form-group">
+        <label for="task">Task</label>
+        <select class="form-control" id="task">
+          <option value="regression">regression</option>
+          <option value="boolean">Binary classification (predicting P(true))</option>
+          <option value="categorical">Multiclass classification (predicting P(category))</option>
+        </select>
+      </div>
+
+    </div>
+</div>
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <h3 class="panel-title">Dataset configuration</h3>
+  </div>
+  <div class="panel-body">
+<!-- dataset id -->
+      <div class="form-group">
+        <label for="datasetId">Dataset ID</span></label>
+        <span class="glyphicon glyphicon-refresh" id="datasetDropDownRefreshBtn"></span>
+        <select class="form-control" id="datasetId">
+        </select>
+      </div>
+
+<!-- select expr -->
+      <div class="form-group">
+        <label for="selectExpr">Select expression
+            <span class="glyphicon glyphicon-question-sign" data-toggle="collapse" data-target="#selectExprDoc" aria-expanded="false" aria-controls="selectExprDoc"></span>
+        </label>
+        <div class="collapse" id="selectExprDoc">
+          <div class="well">
+<p>The SELECT clause for which columns to include from the dataset. Unlike most select expressions, this one can only select whole columns, not expressions involving columns. So X will work, but not X + 1. If you need derived values in the select expression, create a dataset with the derived columns as a previous step and run the classifier over that dataset instead.</p>
+<p>Type: SqlSelectExpression</p>
+<p>Default value: *</p>
+          </div>
+        </div>
+
+        <input type="text" class="form-control" id="selectExpr" placeholder="SQL select expression" value="*">
+      </div>
+
+<!-- where expr -->
+      <div class="form-group">
+        <label for="whereExpr">Where expression
+            <span class="glyphicon glyphicon-question-sign" data-toggle="collapse" data-target="#whereExprDoc" aria-expanded="false" aria-controls="whereExprDoc"></span>
+        </label>
+        <div class="collapse" id="whereExprDoc">
+          <div class="well">
+<p>The WHERE clause for which rows to include from the dataset. This can be any expression involving the columns in the dataset.</p>
+<p>Type: SqlRowExpression</p>
+<p>Default value: true</p>
+          </div>
+        </div>
+        <input type="text" class="form-control" id="whereExpr" placeholder="SQL where expression" value="true">
+      </div>
+
+<!-- label expr -->
+      <div class="form-group">
+        <label for="labelExpr">Label
+            <span class="glyphicon glyphicon-question-sign" data-toggle="collapse" data-target="#labelExprDoc" aria-expanded="false" aria-controls="labelExprDoc"></span>
+        </label>
+        <div class="collapse" id="labelExprDoc">
+          <div class="well">
+<p>The expression to generate the label. This can be any expression involving the columns in the dataset. The type of the label expression must match that of the classifier mode: a boolean (0 or 1) for `boolean` mode; a real for regression mode, and any combination of numbers and strings for `categorical` mode. Labels with a null value will have their row skipped.</p>
+<p>Type: SqlRowExpression</p>
+          </div>
+        </div>
+        <input type="text" class="form-control" id="labelExpr" placeholder="label">
+      </div>
+
+    <div class="text-right">
+      <button type="button" class="btn btn-default">Preview examples</button>
+</div>
+
+  </div>
+</div>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <h3 class="panel-title">Algorithm configuration</h3>
+  </div>
+  <div class="panel-body">
+
+<!-- algo -->
+      <div class="form-group">
+        <label for="algo">Algorithm preset
+        </label>
+        <select class="form-control" id="algo">
+        </select>
+      </div>
+
+<!-- algo conf -->
+      <div class="form-group">
+        <label for="algoConf">Algorithm configuration
+            <span class="glyphicon glyphicon-question-sign" data-toggle="collapse" data-target="#algoConfDoc" aria-expanded="false" aria-controls="algoConfDoc"></span>
+        </label>
+        <div class="collapse" id="algoConfDoc">
+          <div class="well">
+<p>Configuration object to use for the classifier. Each one has its own parameters. If none is passed, then the configuration will be loaded from the ConfigurationFile parameter</p>          
+        </div>
+        </div>
+        <textarea rows="10" class="form-control" id="algoConf"></textarea>
+      </div>
+  
+<!-- equalization factor -->
+      <div class="form-group">
+        <label for="eqFactor">Equalization factor
+            <span class="glyphicon glyphicon-question-sign" data-toggle="collapse" data-target="#eqFactorDoc" aria-expanded="false" aria-controls="eqFactorDoc"></span>
+        </label>
+        <div class="collapse" id="eqFactorDoc">
+          <div class="well">
+        <p>Amount to adjust weights so that all classes have an equal total weight. A value of 0 (default) will not equalize weights at all. A value of 1 will ensure that the total weight for both positive and negative examples is exactly identical. A number between will choose a balanced tradeoff. Typically 0.5 is a good number to use for unbalanced probabilities</p>
+        <p>Default value: 0</p>  
+        </div>
+        </div>
+        <input type="text" class="form-control" id="eqFactor" placeholder="0" value="0">
+      </div>
+
+</div>
+</div>
+
+
+      <button type="button" class="btn btn-primary" id="createButton">Create</button>
+</form> 
+</span> <!-- end of new pipeline -->
+<br><br>
+
+
+</div>
+    </body>
+
+<html>
