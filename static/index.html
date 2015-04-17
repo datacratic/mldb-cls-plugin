@@ -14,7 +14,7 @@
     <script type="text/javascript">
 $(function() {
 
-    var plugin_prefix = "http://bluekai.ec2.datacratic.com:2361/v1/plugins/cls"
+    var plugin_prefix = "/v1/plugins/cls"
 
     var loadDatasets = function() {
         // get plugin name
@@ -25,16 +25,19 @@ $(function() {
                     alert("Unable to load datasets: " + jqXHR.status + textStatus);
                   },
             success: function(data) {
-
-                var dropdown = $("#datasetId");
-                dropdown.find('option').remove();
-                $.each(data, function() {
-                    dropdown.append($("<option />").val(this.id).text(this.id+" <type:"+this.type+", rowCount:"+this.rowCount+">"));
-                });
+                var dropdowns = ["#createDatasetId", "#testDatasetId"];
+                for(var i=0; i<dropdowns.length; i++) {
+                var dropdown = $(dropdowns[i]);
+                console.log(dropdown);
+                    dropdown.find('option').remove();
+                    $.each(data, function() {
+                       dropdown.append($("<option />").val(this.id).text(this.id+" <type:"+this.type+", rowCount:"+this.rowCount+">"));
+                    });
+                }
             }
         });
     };
-    $("#datasetDropDownRefreshBtn").click(function() {
+    $(".datasetDropDownRefreshBtn").click(function() {
         loadDatasets();
     });
 
@@ -90,7 +93,7 @@ $(function() {
             return false;
         }
                     
-        var dataset = $("#datasetId option:selected").val();
+        var dataset = $("#createDatasetId option:selected").val();
         if(dataset === undefined) {
             alert("Must have a dataset selected");
             return false;
@@ -128,9 +131,10 @@ $(function() {
         addKey(blob["params"], "algoConf", "configuration", "Algorithm configuration", true, JSON.parse);
         addKey(blob["params"], "eqFactor", "equalizationFactor", "Equalization factor", false, parseFloat);
         addKey(blob["params"], "task", "mode", "Task", true);
+        blob["params"]["classifierUri"] = "cls-plugin-"+blob["id"]+".cls"
 
         $.ajax({
-            url: 'http://bluekai.ec2.datacratic.com:2361/v1/pipelines/'+blob["id"],
+            url: '/v1/pipelines/'+blob["id"],
             type: 'PUT',
             data: JSON.stringify(blob),
             contentType: "application/json",
@@ -152,20 +156,26 @@ $(function() {
 
         if(button == "existingClsBtn") {
             $.refreshClsList();
+            $("#existingClsBtn").addClass("active");
+            $("#newClsBtn").removeClass("active");
+            $("#existingPipeline").removeClass("hidden");
+            $("#newPipeline").addClass("hidden");
+        } else {
+            $("#existingClsBtn").removeClass("active");
+            $("#newClsBtn").addClass("active");
+            $("#existingPipeline").addClass("hidden");
+            $("#newPipeline").removeClass("hidden");
         }
 
-        if($("#"+button).hasClass("active"))
-            return;
 
-        $("#existingClsBtn").toggleClass("active");
-        $("#newClsBtn").toggleClass("active");
-        $("#existingPipeline").toggleClass("hidden");
-        $("#newPipeline").toggleClass("hidden");
+        //if(!$("#clsDetail").hasClass("hidden")) {
+        $("#clsDetail").addClass("hidden");
+        //}
     };
 
-    $.newRun = function(pipeline, num_runs) {
+    $.newRun = function(pipeline, num_runs, clsListing) {
         var newId = num_runs + 1;
-        var url = 'http://bluekai.ec2.datacratic.com:2361/v1/pipelines/'+pipeline+'/runs/'+newId;
+        var url = '/v1/pipelines/'+pipeline+'/runs/'+newId;
         console.log(url);
         $.ajax({
             url: url,
@@ -176,19 +186,23 @@ $(function() {
             dataType: "json",
             success: function(data) {
                 alert('Run submitted');
-                $.refreshClsList();
+                if(clsListing) {
+                    $.refreshClsList();
+                }
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR);
                 alert("Error when posting run: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
-                $.refreshClsList();
+                if(clsListing) {
+                    $.refreshClsList();
+                }
             },
         });
     };
 
     $.deletePipeline = function(pipeline) {
     //    print mldb.perform("DELETE", "/v1/pipelines/titanic_prob_train_%s" % cls_algo, [], {})
-        var url = 'http://bluekai.ec2.datacratic.com:2361/v1/pipelines/'+pipeline;
+        var url = '/v1/pipelines/'+pipeline;
         console.log(url);
         $.ajax({
             url: url,
@@ -229,8 +243,8 @@ $(function() {
                     var lastRun = this.runs.length == 0 ? "Never" : this.last_run.state
                     newElem += "<td>"+lastRun+"</td>";
 
-                    newElem += '<td><button class="btn btn-primary btn-sm" onClick="$.newRun(\''+this.id+'\', '+this.runs.length+');"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>';
-                    newElem += '<button class="btn btn-primary btn-sm" onClick="$.viewRuns(\''+this.id+'\');"><span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span> Details</button>';
+                    newElem += '<td><button class="btn btn-primary btn-sm" onClick="$.newRun(\''+this.id+'\', '+this.runs.length+', true);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>';
+                    newElem += '<button class="btn btn-primary btn-sm" onClick="$.showClsDetails(\''+this.id+'\');"><span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span> Details</button>';
                     newElem += '<div class="btn-group"><button class="btn btn-danger btn-sm dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete <span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a href="#" onClick="$.deletePipeline(\''+this.id+'\');">Confirm</a></li></ul></div>';
                     newElem += "</td></tr>";
                     clsList.append(newElem);
@@ -238,6 +252,82 @@ $(function() {
             }
         });
     };
+
+    $.showClsDetails = function(pipeline) {
+        $("#clsDetail").removeClass("hidden");
+        $("#existingPipeline").addClass("hidden");
+
+        $.ajax({
+            url: plugin_prefix + "/routes/cls-details/"+pipeline,
+            dataType: "json",
+            error: function (jqXHR, textStatus, errorThrown) {
+                    alert("Unable to load datasets: " + jqXHR.status + textStatus);
+                  },
+            success: function(data) {
+                $("#clsConfArea").val(JSON.stringify(data["pipeline"],null,4));
+
+                // if we don't have runs, add UX to run one
+                $("#latestClsRun").empty();
+                $("#existingClsEvalBody").empty();
+                if(data["runs"].length == 0) {
+                    $("#latestClsRun").append("None");
+                }
+                else {
+                    lastRun = data["runs"][data["runs"].length-1]["id"];
+                    $("#latestClsRun").append(lastRun);
+                    $("#testRunId").val(parseInt(lastRun)+1);
+                    $("#testPipelineName").val(pipeline);
+
+                    for(var idx = 0; idx < data["runs"].length; idx++) {
+                        newElem = "<tr>";
+                        if("eval" in data["runs"][idx]) {
+                            newElem += "<td>"+data["runs"][idx]["id"]+"</td>";
+                            newElem += '<td>'+data["runs"][idx]["config"]["config"]["params"]["dataset"]["id"]+'</td>';
+                            newElem += '<td>'+data["runs"][idx]["config"]["config"]["params"]["where"]+'</td>';
+                            newElem += "<td>"+data["runs"][idx]["eval"]["auc"]+"</td>";
+                            newElem += "<td>"+data["runs"][idx]["eval"]["bestF"]["pr"]["f"]+"</td>";
+                        }
+                        else {
+                            newElem += "<td>"+data["runs"][idx]["id"]+"</td>";
+                            if("error" in data["runs"][idx]["config"]) {
+                                msg = "ERROR: " + data["runs"][idx]["config"]["error"];
+                            } else {
+                                msg = "Not run yet";
+                            }
+                            newElem += "<td colspan=\"5\">"+msg+"</td>";
+                        }    
+                        newElem += "</tr>";
+                        $("#existingClsEvalBody").append(newElem);
+                    }
+                    
+                }
+            }
+        });
+    }
+
+    $.runAccuracyPipeline = function() {
+        $("#newEvalModal").modal('hide');
+        $.ajax({
+            url: plugin_prefix + "/routes/runeval",
+            type: 'PUT',
+            data: JSON.stringify({
+                "pipeline_name": $("#testPipelineName").val(),
+                "run_id":        $("#testRunId").val(),
+                "testset_id":    $("#testDatasetId").val(),
+                "where":         $("#testWhereExpr").val(),
+                "label":         $("#testLabelExpr").val()
+            }),
+            contentType: "application/json",
+            dataType: "json",
+            success: function(data) {
+                alert("wouhou");
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.log(jqXHR);
+                alert("Error when posting accuracy pipeline run: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
+            },
+        });
+    }
 
     //loadDatasets();    
     loadClsPresets();
@@ -272,31 +362,147 @@ $(function() {
       </ul>
     </div><!-- /.navbar-collapse -->
   </div><!-- /.container-fluid -->
-</nav>
+  </nav>
+
+<!-- 
+*********************************
+    Existing classifiers 
+*********************************
+  -->
+
 <span id="existingPipeline">
 <h1>Existing classifiers</h1>
 
 <table class="table" id="existingClsList">
-    <thead>
-    <tr>
-        <th>ID</th>
-        <th>Status</th>
-        <th>Algo</th>
-        <th>Dataset</th>
-        <th>Runs</th>
-        <th>Last Run</th>
-        <th></th>
-    </tr>
-    </thead>
-    <tbody id="existingClsListBody">
-    </tbody>
+<thead>
+<tr>
+    <th>ID</th>
+    <th>Status</th>
+    <th>Algo</th>
+    <th>Dataset</th>
+    <th>Runs</th>
+    <th>Last Run</th>
+    <th></th>
+</tr>
+</thead>
+<tbody id="existingClsListBody">
+</tbody>
 </table>
 
 <button onclick="$.refreshClsList();">Refresh</button>
 
 </span>
 
+<!-- 
+*********************************
+Classifier details
+*********************************
+-->
 
+<span id="clsDetail" class="hidden">
+<h1>Classifier details</h1>
+
+<div class="panel panel-default">
+<div class="panel-heading">
+<h3 class="panel-title">Classifier configuration</h3>
+</div>
+<div class="panel-body">
+ <textarea rows="15" cols="75" id="clsConfArea"></textarea>
+</div>
+</div>
+
+<hr>
+
+<h3>Evaluations</h3>
+<table class="table" id="evaluationsList">
+<thead>
+<tr>
+    <th>Run</th>
+    <th>Dataset</th>
+    <th>Where</th>
+    <th>AUC</th>
+    <th>Best F</th>
+    <th>Details</th>
+</tr>
+</thead>
+<tbody id="existingClsEvalBody">
+</tbody>
+</table>
+
+<!-- Button trigger modal -->
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#newEvalModal">
+  Run new evaluation
+</button>
+
+<!-- new evaluation modal -->
+<div class="modal fade" id="newEvalModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+<h4>Classifier evaluation configuration</h4>
+     </div>
+      <div class="modal-body">
+
+<input type="hidden" id="testPipelineName" value="">
+<input type="hidden" id="testRunId" value="">
+<!-- dataset id -->
+  <div class="form-group">
+      <label>Run: </label><span id="latestClsRun"></span>
+</div>
+
+<!-- dataset id -->
+  <div class="form-group">
+    <label for="datasetId">Dataset ID</label>
+    <span class="glyphicon glyphicon-refresh datasetDropDownRefreshBtn"></span>
+    <select class="form-control" id="testDatasetId">
+    </select>
+  </div>
+
+<!-- where expr -->
+  <div class="form-group">
+    <label for="testWhereExpr">Where expression
+        <span class="glyphicon glyphicon-question-sign" data-toggle="collapse" data-target="#testWhereExprDoc" aria-expanded="false" aria-controls="testWhereExprDoc"></span>
+    </label>
+    <div class="collapse" id="testWhereExprDoc">
+      <div class="well">
+<p>The WHERE clause for which rows to include from the dataset. This can be any expression involving the columns in the dataset.</p>
+<p>Type: SqlRowExpression</p>
+<p>Default value: true</p>
+          </div>
+        </div>
+        <input type="text" class="form-control" id="testWhereExpr" placeholder="SQL where expression" value="true">
+      </div>
+
+<!-- label expr -->
+      <div class="form-group">
+        <label for="testLabelExpr">Label
+            <span class="glyphicon glyphicon-question-sign" data-toggle="collapse" data-target="#testLabelExprDoc" aria-expanded="false" aria-controls="testLabelExprDoc"></span>
+        </label>
+        <div class="collapse" id="testLabelExprDoc">
+          <div class="well">
+<p>The expression to generate the label. This can be any expression involving the columns in the dataset. The type of the label expression must match that of the classifier mode: a boolean (0 or 1) for `boolean` mode; a real for regression mode, and any combination of numbers and strings for `categorical` mode. Labels with a null value will have their row skipped.</p>
+<p>Type: SqlRowExpression</p>
+          </div>
+        </div>
+        <input type="text" class="form-control" id="testLabelExpr" placeholder="label">
+      </div>
+      
+    <button class="btn btn-primary" onClick="$.runAccuracyPipeline();">
+          <span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> Evaluate</button>
+</div>
+   </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+</span>
+
+
+<!-- 
+*********************************
+    New classifier
+*********************************
+  -->
 
 <span id="newPipeline" class="hidden">
 <h1>New classifier</h1>
@@ -330,9 +536,9 @@ $(function() {
   <div class="panel-body">
 <!-- dataset id -->
       <div class="form-group">
-        <label for="datasetId">Dataset ID</span></label>
-        <span class="glyphicon glyphicon-refresh" id="datasetDropDownRefreshBtn"></span>
-        <select class="form-control" id="datasetId">
+        <label for="datasetId">Dataset ID</label>
+        <span class="glyphicon glyphicon-refresh datasetDropDownRefreshBtn"></span>
+        <select class="form-control" id="createDatasetId">
         </select>
       </div>
 
@@ -442,4 +648,4 @@ $(function() {
 </div>
     </body>
 
-<html>
+</html>

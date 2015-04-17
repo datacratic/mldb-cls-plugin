@@ -80,6 +80,9 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             rez = mldb.perform("GET", str("/v1/datasets/%s" % dataset), [], {})
             resp = json.loads(rez["response"])
 
+            # skip the datasets we generate using the cls plugin
+            if dataset.startswith("cls-plugin-"): continue
+
             datasets.append({
                 "id": str(dataset),
                 "type": str(resp["type"]),
@@ -88,7 +91,92 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             })
         
         return datasets
-    
+   
+    def get_accuracy_pipeline_name(pipeline, run):
+        return "cls-plugin-%s-%s" % (pipeline, run)
+     
+    if verb == "GET" and remaining.startswith("/cls-details"):
+        pipeline_name = remaining.split("/")[-1]
+        rez = mldb.perform("GET", "/v1/pipelines/"+pipeline_name, [], {})
+        prez = json.loads(rez["response"])
+        pipeline_details = _decode_dict(prez)
+            
+        rez_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pipeline_name), [], {})
+        resp_runs = json.loads(rez_runs["response"])
+
+        resp_all_run = []
+        for run_id in resp_runs:
+            rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline_name, run_id)), [], {})
+            run_details = _decode_dict(json.loads(rez_all_run["response"]))
+            
+
+            # do we have an accuracy pipeline for this run?
+            accuracy_dataset_name = get_accuracy_pipeline_name(pipeline_name, run_id)
+            
+            rez_all_run = mldb.perform("GET", str("/v1/pipelines/cls-plugin-%s-%s" % (pipeline_name, run_id)), [], {})
+            run_details["config"] = _decode_dict(json.loads(rez_all_run["response"]))
+
+            rez_all_run = mldb.perform("GET", str("/v1/pipelines/cls-plugin-%s-%s/runs/1" % (pipeline_name, run_id)), [], {})
+            run_perf = _decode_dict(json.loads(rez_all_run["response"]))
+            if "status" in run_perf:
+                run_details["eval"] = _decode_dict(run_perf["status"])
+
+            resp_all_run.append(run_details)
+
+        return {"pipeline": pipeline_details,
+                "runs": resp_all_run}
+
+    if verb == "PUT" and remaining.startswith("/runeval"):
+        payload = json.loads(payload)
+        if not "pipeline_name" in payload:
+            print payload
+            raise Exception("missing key in payload!")
+
+        
+        pipeline_name = payload["pipeline_name"]
+        run_id = payload["run_id"]
+        
+        if pipeline_name == "" or run_id == "":
+            raise Exception(str("pipeline_name (%s) and run_id (%s) can't be empty!"
+                % (pipeline_name, run_id)))
+        
+        rez = mldb.perform("GET", str("/v1/pipelines/"+pipeline_name), [], {})
+        pipeline_conf = json.loads(rez["response"])
+        print pipeline_conf["config"]["params"]
+        # TODO is 404
+
+
+        clsBlockName = "clspluginclassifyBlock" + pipeline_name
+        print mldb.perform("DELETE", str("/v1/blocks/" + clsBlockName), [], {})
+        applyBlockConfig = {
+            "id": str(clsBlockName),
+            "type": "classifier.apply",
+            "params": {
+                "classifierUri": str(pipeline_conf["config"]["params"]["classifierUri"])
+            }
+        }
+        print mldb.perform("PUT", str("/v1/blocks/"+clsBlockName), [], applyBlockConfig)
+
+        testClsPipelineName = get_accuracy_pipeline_name(pipeline_name, run_id)
+        testClsPipelineConfig = {
+            "id": str(testClsPipelineName),
+            "type": "accuracy",
+            "params": {
+                "dataset": { "id": str(payload["testset_id"]) },
+                "output": {
+                    "id": str("cls-plugin-accuracy-rez-%s-%s" % (pipeline_name, run_id)),
+                    "type": "mutable",
+                },
+                "where": str(payload["where"]),
+                "score": str("APPLY BLOCK %s WITH (%s) EXTRACT(score)" % (clsBlockName, pipeline_conf["config"]["params"]["select"])),
+                "label": str(payload["label"]),
+            }
+        }
+        print mldb.perform("PUT", str("/v1/pipelines/%s" % testClsPipelineName), [], testClsPipelineConfig)
+        print mldb.perform("PUT", str("/v1/pipelines/%s/runs/1" % testClsPipelineName), [], {})
+
+        return "OK!"
+
     if verb == "GET" and remaining == "/classifier-list":
         rez = mldb.perform("GET", "/v1/pipelines", [], {})
         pipelines = []
@@ -96,7 +184,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             # get the piepline details
             rez = mldb.perform("GET", str("/v1/pipelines/%s" % pipeline), [], {})
             resp = json.loads(rez["response"])
-            if resp["type"] != "classifier": continue
+            if "type" in resp and resp["type"] != "classifier": continue
             
             # get the runs for the piepeline
             rez_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pipeline), [], {})
@@ -104,6 +192,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
             resp_last_run = {}
             if len(resp_runs) > 0:
+                print resp_runs
                 rez_last_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1])), [], {})
                 resp_last_run = json.loads(rez_last_run["response"])
 
