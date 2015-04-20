@@ -173,13 +173,12 @@ $(function() {
         //}
     };
 
-    $.newRun = function(pipeline, num_runs, clsListing) {
-        var newId = num_runs + 1;
-        var url = '/v1/pipelines/'+pipeline+'/runs/'+newId;
+    $.newRun = function(pipeline, clsListing) {
+        var url = '/v1/pipelines/'+pipeline+'/runs';
         console.log(url);
         $.ajax({
             url: url,
-            type: 'PUT',
+            type: 'POST',
             data: '{}',
             headers: JSON.stringify({"async": true}), // TODO does not work 
             contentType: "application/json",
@@ -188,6 +187,8 @@ $(function() {
                 alert('Run submitted');
                 if(clsListing) {
                     $.refreshClsList();
+                } else {
+                    $.showClsDetails(pipeline);
                 }
             },
             error: function (jqXHR, textStatus, errorThrown) {
@@ -195,6 +196,8 @@ $(function() {
                 alert("Error when posting run: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
                 if(clsListing) {
                     $.refreshClsList();
+                } else {
+                    $.showClsDetails(pipeline);
                 }
             },
         });
@@ -236,14 +239,22 @@ $(function() {
                     var newElem = "<tr id=\"run"+this.id+"\">";
                     newElem += "<td>"+this.id+"</td>";
                     newElem += "<td>"+this.state+"</td>";
-                    newElem += "<td>"+this.params.configuration.type+"</td>";
-                    newElem += "<td>"+this.params.dataset.id+"</td>";
+                    if(this.params && this.params.configuration && +this.params.configuration.type) {
+                        newElem += "<td>"+this.params.configuration.type+"</td>";
+                    } else {
+                        newElem += "<td>-</td>";
+                    }
+                    if(this.params && this.params.dataset) {
+                        newElem += "<td>"+this.params.dataset.id+"</td>";
+                    } else {
+                        newElem += "<td>-</td>";
+                    }
                     newElem += "<td>"+this.runs.length+"</td>";
 
                     var lastRun = this.runs.length == 0 ? "Never" : this.last_run.state
                     newElem += "<td>"+lastRun+"</td>";
 
-                    newElem += '<td><button class="btn btn-primary btn-sm" onClick="$.newRun(\''+this.id+'\', '+this.runs.length+', true);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>';
+                    newElem += '<td><button class="btn btn-primary btn-sm" onClick="$.newRun(\''+this.id+'\', true);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>';
                     newElem += '<button class="btn btn-primary btn-sm" onClick="$.showClsDetails(\''+this.id+'\');"><span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span> Details</button>';
                     newElem += '<div class="btn-group"><button class="btn btn-danger btn-sm dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete <span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a href="#" onClick="$.deletePipeline(\''+this.id+'\');">Confirm</a></li></ul></div>';
                     newElem += "</td></tr>";
@@ -265,6 +276,8 @@ $(function() {
                   },
             success: function(data) {
                 $("#clsConfArea").val(JSON.stringify(data["pipeline"],null,4));
+                $("#clsDetailsNewRunContainer").empty().append('<button class="btn btn-primary" onClick="$.newRun(\''+pipeline+'\', false);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>  ')
+                    .append('<button class="btn btn-primary" onClick="$.showClsDetails(\''+pipeline+'\');"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Refresh</button>');
 
                 // if we don't have runs, add UX to run one
                 $("#latestClsRun").empty();
@@ -289,7 +302,10 @@ $(function() {
                         }
                         else {
                             newElem += "<td>"+data["runs"][idx]["id"]+"</td>";
-                            if("error" in data["runs"][idx]["config"]) {
+                            if(!data["runs"][idx]["ran_eval"]) {
+                                msg = "Not evaluated";
+                            }
+                            else if("error" in data["runs"][idx]["config"]) {
                                 msg = "ERROR: " + data["runs"][idx]["config"]["error"];
                             } else {
                                 msg = "Not run yet";
@@ -320,7 +336,8 @@ $(function() {
             contentType: "application/json",
             dataType: "json",
             success: function(data) {
-                alert("wouhou");
+                alert("Evaluation submitted");
+                $.showClsDetails($("#testPipelineName").val());
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR);
@@ -411,9 +428,11 @@ Classifier details
 </div>
 </div>
 
+<span id="clsDetailsNewRunContainer"></span>
+
 <hr>
 
-<h3>Evaluations</h3>
+<h3>Runs and evaluations</h3>
 <table class="table" id="evaluationsList">
 <thead>
 <tr>

@@ -93,8 +93,8 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         return datasets
    
     def get_accuracy_pipeline_name(pipeline, run):
-        return "cls-plugin-%s-%s" % (pipeline, run)
-     
+        return "cls-plugin-%s-RUN:%s" % (pipeline, run)
+    
     if verb == "GET" and remaining.startswith("/cls-details"):
         pipeline_name = remaining.split("/")[-1]
         rez = mldb.perform("GET", "/v1/pipelines/"+pipeline_name, [], {})
@@ -107,19 +107,34 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         resp_all_run = []
         for run_id in resp_runs:
             rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline_name, run_id)), [], {})
+            print "calling WAAAA: " + str("/v1/pipelines/%s/runs/%s" % (pipeline_name, run_id))
+            print rez_all_run
             run_details = _decode_dict(json.loads(rez_all_run["response"]))
-            
+            run_details["ran_eval"] = False
 
             # do we have an accuracy pipeline for this run?
-            accuracy_dataset_name = get_accuracy_pipeline_name(pipeline_name, run_id)
-            
-            rez_all_run = mldb.perform("GET", str("/v1/pipelines/cls-plugin-%s-%s" % (pipeline_name, run_id)), [], {})
-            run_details["config"] = _decode_dict(json.loads(rez_all_run["response"]))
+            pipelineRunName = get_accuracy_pipeline_name(pipeline_name, run_id)
 
-            rez_all_run = mldb.perform("GET", str("/v1/pipelines/cls-plugin-%s-%s/runs/1" % (pipeline_name, run_id)), [], {})
-            run_perf = _decode_dict(json.loads(rez_all_run["response"]))
-            if "status" in run_perf:
-                run_details["eval"] = _decode_dict(run_perf["status"])
+            rez_all_run = mldb.perform("GET", str("/v1/pipelines"), [], {})
+            for pname in json.loads(rez_all_run["response"]):
+                print "SW ?? " + pname + "   piprun: " + pipelineRunName
+                if pname.startswith(pipelineRunName):
+                    run_details["ran_eval"] = True
+
+                    rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s" % pname), [], {})
+                    run_details["config"] = _decode_dict(json.loads(rez_all_run["response"]))
+
+                    eval_pipeline_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pname), [], {})
+                    eval_pipeline_runs = json.loads(eval_pipeline_runs["response"])
+                    print eval_pipeline_runs
+                    if(len(eval_pipeline_runs) > 0):
+                        rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" %
+                            (pname, eval_pipeline_runs[-1])), [], {})
+                        run_perf = _decode_dict(json.loads(rez_all_run["response"]))
+                        if "status" in run_perf:
+                            run_details["eval"] = _decode_dict(run_perf["status"])
+
+                    break
 
             resp_all_run.append(run_details)
 
@@ -132,21 +147,26 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             print payload
             raise Exception("missing key in payload!")
 
-        
         pipeline_name = payload["pipeline_name"]
-        run_id = payload["run_id"]
         
-        if pipeline_name == "" or run_id == "":
-            raise Exception(str("pipeline_name (%s) and run_id (%s) can't be empty!"
-                % (pipeline_name, run_id)))
+        if pipeline_name == "":
+            raise Exception(str("pipeline_name (%s) can't be empty!"
+                % (pipeline_name)))
         
         rez = mldb.perform("GET", str("/v1/pipelines/"+pipeline_name), [], {})
+        if rez["statusCode"] == 404:
+            raise Exception("Pipeline does not exist!")
+
         pipeline_conf = json.loads(rez["response"])
-        print pipeline_conf["config"]["params"]
-        # TODO is 404
+
+        # get latest pipeline run
+        rez = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pipeline_name), [], {})
+        pipeline_runs = json.loads(rez["response"])
+        lastRun = pipeline_runs[-1]
+        pipelineRunName = get_accuracy_pipeline_name(pipeline_name, lastRun)
 
 
-        clsBlockName = "clspluginclassifyBlock" + pipeline_name
+        clsBlockName = "cls-plugin-classifyBlock" + pipelineRunName
         print mldb.perform("DELETE", str("/v1/blocks/" + clsBlockName), [], {})
         applyBlockConfig = {
             "id": str(clsBlockName),
@@ -157,23 +177,25 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         }
         print mldb.perform("PUT", str("/v1/blocks/"+clsBlockName), [], applyBlockConfig)
 
-        testClsPipelineName = get_accuracy_pipeline_name(pipeline_name, run_id)
+        now = datetime.datetime.now().isoformat()
+        testClsPipeName = pipelineRunName + "-" + now
         testClsPipelineConfig = {
-            "id": str(testClsPipelineName),
+            "id": str(testClsPipeName),
             "type": "accuracy",
             "params": {
                 "dataset": { "id": str(payload["testset_id"]) },
                 "output": {
-                    "id": str("cls-plugin-accuracy-rez-%s-%s" % (pipeline_name, run_id)),
+                    "id": str("%s-rez" % testClsPipeName),
                     "type": "mutable",
                 },
                 "where": str(payload["where"]),
-                "score": str("APPLY BLOCK %s WITH (%s) EXTRACT(score)" % (clsBlockName, pipeline_conf["config"]["params"]["select"])),
+                "score": str("APPLY BLOCK \"%s\" WITH (%s) EXTRACT(score)" %
+                    (clsBlockName, pipeline_conf["config"]["params"]["select"])),
                 "label": str(payload["label"]),
             }
         }
-        print mldb.perform("PUT", str("/v1/pipelines/%s" % testClsPipelineName), [], testClsPipelineConfig)
-        print mldb.perform("PUT", str("/v1/pipelines/%s/runs/1" % testClsPipelineName), [], {})
+        print mldb.perform("PUT",  str("/v1/pipelines/%s" % testClsPipeName), [], testClsPipelineConfig)
+        print mldb.perform("POST", str("/v1/pipelines/%s/runs" % testClsPipeName), [], {})
 
         return "OK!"
 
@@ -184,24 +206,31 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             # get the piepline details
             rez = mldb.perform("GET", str("/v1/pipelines/%s" % pipeline), [], {})
             resp = json.loads(rez["response"])
-            if "type" in resp and resp["type"] != "classifier": continue
-            
+            if "type" in resp and resp["type"] != "classifier":
+                continue
+            if resp["id"].startswith("cls-plugin-"): continue
+
             # get the runs for the piepeline
             rez_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pipeline), [], {})
             resp_runs = json.loads(rez_runs["response"])
 
             resp_last_run = {}
-            if len(resp_runs) > 0:
-                print resp_runs
+            if rez_runs["statusCode"] != 404 and len(resp_runs) > 0:
+                print "calling: " + str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1]))
                 rez_last_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1])), [], {})
+                print rez_last_run
                 resp_last_run = json.loads(rez_last_run["response"])
+                runs = _decode_list(resp_runs)
+
+            else:
+                runs = []
 
             pipelines.append({
                 "id": str(pipeline),
                 "state": str(resp["state"]),
-                "type": str(resp["type"]),
-                "params": _decode_dict(resp["config"]["params"]),
-                "runs": _decode_list(resp_runs),
+                "type": str(resp["type"]) if "type" in resp else "", #check no longer required when MLDB-572 is fixed
+                "params": _decode_dict(resp["config"]["params"]) if "config" in resp else {},
+                "runs": runs,
                 "last_run": _decode_dict(resp_last_run)
             })
         return pipelines
