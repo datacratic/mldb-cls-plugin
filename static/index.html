@@ -47,6 +47,7 @@ $(function() {
             url: plugin_prefix + "/routes/cls-presets",
             dataType: "json",
             error: function (jqXHR, textStatus, errorThrown) {
+                    console.log(jqXHR);
                     alert("Unable to load cls presets: " + jqXHR.status + textStatus);
                   },
             success: function(data) {
@@ -346,9 +347,9 @@ $(function() {
         });
     }
 
-    //loadDatasets();    
+    loadDatasets();
+    $.refreshClsList();
     loadClsPresets();
-
 });
    </script>
     </head>
@@ -406,7 +407,7 @@ $(function() {
 </tbody>
 </table>
 
-<button onclick="$.refreshClsList();">Refresh</button>
+<button class="btn btn-primary" onclick="$.refreshClsList();">Refresh</button>
 
 </span>
 
