@@ -11,6 +11,12 @@
 <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/themes/smoothness/jquery-ui.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/jquery-ui.min.js"></script>
 -->
+    <style type="text/css">
+    .detailsButton:hover {
+        cursor: pointer;
+    }
+    </style>
+
     <script type="text/javascript">
 $(function() {
 
@@ -280,6 +286,7 @@ $(function() {
                 // if we don't have runs, add UX to run one
                 $("#latestClsRun").empty();
                 $("#existingClsEvalBody").empty();
+                $.evaluations = data;
                 if(data["runs"].length == 0) {
                     $("#latestClsRun").append("None");
                 }
@@ -297,6 +304,7 @@ $(function() {
                             newElem += '<td>'+data["runs"][idx]["config"]["config"]["params"]["where"]+'</td>';
                             newElem += "<td>"+data["runs"][idx]["eval"]["auc"]+"</td>";
                             newElem += "<td>"+data["runs"][idx]["eval"]["bestF"]["pr"]["f"]+"</td>";
+                            newElem += "<td><span class=\"glyphicon glyphicon-zoom-in detailsButton\" onclick=\"$.showEvaluationDetails("+idx+")\"></span></td>";
                         }
                         else {
                             newElem += "<td>"+data["runs"][idx]["id"]+"</td>";
@@ -317,6 +325,12 @@ $(function() {
                 }
             }
         });
+    }
+
+    $.showEvaluationDetails = function(run_id) {
+        $("#evalDetailsModal").modal('show');
+        $("#evalDetailsModalConf").val(JSON.stringify($.evaluations["runs"][run_id]["config"]["config"]["params"],null,4));
+        $("#evalDetailsModalRez").val(JSON.stringify($.evaluations["runs"][run_id]["eval"],null,4));
     }
 
     $.runAccuracyPipeline = function() {
@@ -508,6 +522,26 @@ Classifier details
     <button class="btn btn-primary" onClick="$.runAccuracyPipeline();">
           <span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> Evaluate</button>
 </div>
+   </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- evaluation details modal -->
+<div class="modal fade" id="evalDetailsModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4>Evaluation details</h4>
+     </div>
+      <div class="modal-body">
+
+        <h5>Configuration</h5>
+        <textarea rows="15" cols="75" id="evalDetailsModalConf"></textarea>
+        <h5>Results</h5>
+        <textarea rows="15" cols="75" id="evalDetailsModalRez"></textarea>
+
+   </div><!-- /.modal-body -->
    </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->

@@ -125,7 +125,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
                     eval_pipeline_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pname), [], {})
                     eval_pipeline_runs = json.loads(eval_pipeline_runs["response"])
-                    if(len(eval_pipeline_runs) > 0):
+                    if len(eval_pipeline_runs) > 0:
                         rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" %
                             (pname, eval_pipeline_runs[-1])), [], {})
                         run_perf = _decode_dict(json.loads(rez_all_run["response"]))
@@ -235,7 +235,6 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
     if verb == "GET" and remaining == "/cls-presets":
         lines2 = [x.strip() for x in open(mldb.plugin.get_plugin_dir() +"/classifier-config.txt") if len(x.strip())>0 and x[0] != "#"]
-
 
         reobj = re.compile(r"([\w]+) \{", re.IGNORECASE)
 
