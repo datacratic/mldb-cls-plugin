@@ -164,7 +164,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         pipelineRunName = get_accuracy_pipeline_name(pipeline_name, lastRun)
 
 
-        clsBlockName = "cls-plugin-%s-classifyBlock-" % pipelineRunName
+        clsBlockName = "%s-classifyBlock-" % pipelineRunName
         print mldb.perform("DELETE", str("/v1/blocks/" + clsBlockName), [], {})
         applyBlockConfig = {
             "id": str(clsBlockName),
