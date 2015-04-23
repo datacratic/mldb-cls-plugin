@@ -98,6 +98,8 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
     if verb == "GET" and remaining.startswith("/cls-details"):
         pipeline_name = remaining.split("/")[-1]
         rez = mldb.perform("GET", "/v1/pipelines/"+pipeline_name, [], {})
+        if rez["statusCode"] == 404:
+            raise Exception("Pipeline does not exist!")
         prez = json.loads(rez["response"])
         pipeline_details = _decode_dict(prez)
             
@@ -107,8 +109,6 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         resp_all_run = []
         for run_id in resp_runs:
             rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline_name, run_id)), [], {})
-            print "calling WAAAA: " + str("/v1/pipelines/%s/runs/%s" % (pipeline_name, run_id))
-            print rez_all_run
             run_details = _decode_dict(json.loads(rez_all_run["response"]))
             run_details["ran_eval"] = False
 
@@ -117,7 +117,6 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
             rez_all_run = mldb.perform("GET", str("/v1/pipelines"), [], {})
             for pname in json.loads(rez_all_run["response"]):
-                print "SW ?? " + pname + "   piprun: " + pipelineRunName
                 if pname.startswith(pipelineRunName):
                     run_details["ran_eval"] = True
 
@@ -126,7 +125,6 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
                     eval_pipeline_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pname), [], {})
                     eval_pipeline_runs = json.loads(eval_pipeline_runs["response"])
-                    print eval_pipeline_runs
                     if(len(eval_pipeline_runs) > 0):
                         rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" %
                             (pname, eval_pipeline_runs[-1])), [], {})
@@ -166,7 +164,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         pipelineRunName = get_accuracy_pipeline_name(pipeline_name, lastRun)
 
 
-        clsBlockName = "cls-plugin-classifyBlock" + pipelineRunName
+        clsBlockName = "cls-plugin-%s-classifyBlock-" % pipelineRunName
         print mldb.perform("DELETE", str("/v1/blocks/" + clsBlockName), [], {})
         applyBlockConfig = {
             "id": str(clsBlockName),
@@ -284,11 +282,47 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         print configs
         return configs
 
+    if verb == "DELETE" and remaining.startswith("/del-pipeline/"):
+        remaining_split = remaining.split("/")
+        if len(remaining_split) != 3:
+            raise Exception("Need to specify pipeline name!")
+        pipeline_name = remaining_split[-1]
+        rez = mldb.perform("GET", "/v1/pipelines/"+pipeline_name, [], {})
+        if rez["statusCode"] == 404:
+            raise Exception("Pipeline does not exist!")
+
+        deleteLog = []
+        def doDelete(route):
+            rez = mldb.perform("DELETE", route, [], {})
+            msg = "Deleting %s. Status: %d" % (route, rez["statusCode"])
+            print msg
+            deleteLog.append(msg)
+
+        # delete all derived entities
+        for entity_type in ["blocks", "datasets", "pipelines"]:
+            rez = mldb.perform("GET", str("/v1/"+entity_type), [], {})
+            for entity in json.loads(rez["response"]):
+                if entity.startswith("cls-plugin-%s-RUN" % pipeline_name):
+                    full_entity = str("/v1/%s/%s" % (entity_type, entity))
+                    doDelete(full_entity)
+
+        # delete the main pipeline
+        doDelete(str("/v1/pipelines/" + pipeline_name))
+
+        return deleteLog
+    else:
+        mldb.log(verb)
+        mldb.log(remaining)
+
+
+
 mldb.plugin.set_request_handler(requestHandler)
 
 
 ######################
-##  Create route to serve html
+##  Create route to serve routes
 ######################
 mldb.plugin.serve_static_folder("static", "static")
+mldb.plugin.serve_documentation_folder('doc')
+
 

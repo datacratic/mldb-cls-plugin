@@ -205,11 +205,8 @@ $(function() {
     };
 
     $.deletePipeline = function(pipeline) {
-    //    print mldb.perform("DELETE", "/v1/pipelines/titanic_prob_train_%s" % cls_algo, [], {})
-        var url = '/v1/pipelines/'+pipeline;
-        console.log(url);
         $.ajax({
-            url: url,
+            url: plugin_prefix + "/routes/del-pipeline/"+pipeline,
             type: 'DELETE',
             data: "{}",
             contentType: "application/json",
@@ -276,7 +273,7 @@ $(function() {
                     alert("Unable to load datasets: " + jqXHR.status + textStatus);
                   },
             success: function(data) {
-                $("#clsConfArea").val(JSON.stringify(data["pipeline"],null,4));
+                $("#clsConfArea").val(JSON.stringify(data["pipeline"]["config"],null,4));
                 $("#clsDetailsNewRunContainer").empty().append('<button class="btn btn-primary" onClick="$.newRun(\''+pipeline+'\', false);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>  ')
                     .append('<button class="btn btn-primary" onClick="$.showClsDetails(\''+pipeline+'\');"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Refresh</button>');
 
