@@ -28,8 +28,8 @@ $(function() {
             url: plugin_prefix + "/routes/dataset-details",
             dataType: "json",
             error: function (jqXHR, textStatus, errorThrown) {
-                    alert("Unable to load datasets: " + jqXHR.status + textStatus);
-                  },
+                alert("Unable to load datasets: " + jqXHR.status + textStatus);
+            },
             success: function(data) {
                 var dropdowns = ["#createDatasetId", "#testDatasetId"];
                 for(var i=0; i<dropdowns.length; i++) {
@@ -187,11 +187,11 @@ $(function() {
             url: url,
             type: 'POST',
             data: '{}',
-            headers: JSON.stringify({"async": true}), // TODO does not work 
+            headers: {"async": true}, // TODO does not work 
             contentType: "application/json",
             dataType: "json",
             success: function(data) {
-                alert('Run submitted');
+                //alert('Run finished');
                 if(clsListing) {
                     $.refreshClsList();
                 } else {
@@ -208,6 +208,12 @@ $(function() {
                 }
             },
         });
+
+                if(clsListing) {
+                    $.refreshClsList();
+                } else {
+                    $.showClsDetails(pipeline);
+                }
     };
 
     $.deletePipeline = function(pipeline) {
@@ -287,6 +293,7 @@ $(function() {
                 $("#latestClsRun").empty();
                 $("#existingClsEvalBody").empty();
                 $.evaluations = data;
+                $("#newEvaluationButton").prop('disabled', true);
                 if(data["runs"].length == 0) {
                     $("#latestClsRun").append("None");
                 }
@@ -308,8 +315,13 @@ $(function() {
                         }
                         else {
                             newElem += "<td>"+data["runs"][idx]["id"]+"</td>";
-                            if(!data["runs"][idx]["ran_eval"]) {
+                            if(data["runs"][idx]["state"] == "initializing") {
+                                msg = "Running...";
+                                $("#newEvaluationButton").prop('disabled', false);
+                            }
+                            else if(!data["runs"][idx]["ran_eval"]) {
                                 msg = "Not evaluated";
+                                $("#newEvaluationButton").prop('disabled', false);
                             }
                             else if("error" in data["runs"][idx]["config"]) {
                                 msg = "ERROR: " + data["runs"][idx]["config"]["error"];
@@ -348,7 +360,7 @@ $(function() {
             contentType: "application/json",
             dataType: "json",
             success: function(data) {
-                alert("Evaluation submitted");
+                //alert("Evaluation finished");submitted");
                 $.showClsDetails($("#testPipelineName").val());
             },
             error: function (jqXHR, textStatus, errorThrown) {
@@ -356,6 +368,8 @@ $(function() {
                 alert("Error when posting accuracy pipeline run: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
             },
         });
+        
+        $.showClsDetails($("#testPipelineName").val());
     }
 
     loadDatasets();
@@ -461,7 +475,7 @@ Classifier details
 </table>
 
 <!-- Button trigger modal -->
-<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#newEvalModal">
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#newEvalModal" id="newEvaluationButton">
   Run new evaluation
 </button>
 
@@ -637,11 +651,11 @@ Classifier details
         </div>
         <input type="text" class="form-control" id="labelExpr" placeholder="label">
       </div>
-
+<!-- not working for now
     <div class="text-right">
       <button type="button" class="btn btn-default">Preview examples</button>
-</div>
-
+    </div>
+    -->
   </div>
 </div>
 
