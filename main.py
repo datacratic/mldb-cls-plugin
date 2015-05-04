@@ -9,7 +9,7 @@ mldb.perform("DELETE", "/v1/datasets/toy", [], {})
 
 # create a mutable beh dataset
 datasetConfig = {
-        "type": "mutable",
+        "type": "beh_mutable",
         "id": "toy",
     }
 
@@ -170,7 +170,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             "id": str(clsBlockName),
             "type": "classifier.apply",
             "params": {
-                "classifierUri": str(pipeline_conf["config"]["params"]["classifierUri"])
+                "classifierModelUri": str(pipeline_conf["config"]["params"]["classifierModelUri"])
             }
         }
         print mldb.perform("PUT", str("/v1/blocks/"+clsBlockName), [], applyBlockConfig)
@@ -184,7 +184,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
                 "dataset": { "id": str(payload["testset_id"]) },
                 "output": {
                     "id": str("%s-rez" % testClsPipeName),
-                    "type": "mutable",
+                    "type": "beh_mutable",
                 },
                 "where": str(payload["where"]),
                 "score": str("APPLY BLOCK \"%s\" WITH (%s) EXTRACT(score)" %
