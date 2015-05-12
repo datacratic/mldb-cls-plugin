@@ -73,6 +73,10 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             rv[key] = value
         return rv
 
+    def get_accuracy_pipeline_name(pipeline, run):
+        return "cls-plugin-%s-RUN:%s" % (pipeline, run)
+    
+
     if verb == "GET" and remaining == "/dataset-details":
         datasets = []
         rez = mldb.perform("GET", "/v1/datasets", [], {})
@@ -92,9 +96,6 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         
         return datasets
    
-    def get_accuracy_pipeline_name(pipeline, run):
-        return "cls-plugin-%s-RUN:%s" % (pipeline, run)
-    
     if verb == "GET" and remaining.startswith("/cls-details"):
         pipeline_name = remaining.split("/")[-1]
         rez = mldb.perform("GET", "/v1/pipelines/"+pipeline_name, [], {})
@@ -118,20 +119,23 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             rez_all_run = mldb.perform("GET", str("/v1/pipelines"), [], {})
             for pname in json.loads(rez_all_run["response"]):
                 if pname.startswith(pipelineRunName):
+                    eval_details = {}
                     run_details["ran_eval"] = True
 
                     rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s" % pname), [], {})
-                    run_details["config"] = _decode_dict(json.loads(rez_all_run["response"]))
+                    eval_details["config"] = _decode_dict(json.loads(rez_all_run["response"]))
 
                     eval_pipeline_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pname), [], {})
                     eval_pipeline_runs = json.loads(eval_pipeline_runs["response"])
-                    if len(eval_pipeline_runs) > 0:
-                        rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" %
-                            (pname, eval_pipeline_runs[-1])), [], {})
+                    if "error" not in eval_pipeline_runs and len(eval_pipeline_runs) > 0:
+                        run_id = eval_pipeline_runs[-1]
+                        rez_all_run = mldb.perform("GET", 
+                                str("/v1/pipelines/%s/runs/%s" % (pname, run_id)), [], {})
                         run_perf = _decode_dict(json.loads(rez_all_run["response"]))
-                        if "status" in run_perf:
-                            run_details["eval"] = _decode_dict(run_perf["status"])
+                        if "state" in run_perf:
+                            eval_details["eval"] = _decode_dict(run_perf)
 
+                    run_details["eval"] = eval_details
                     break
 
             resp_all_run.append(run_details)
@@ -184,10 +188,10 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
                 "dataset": { "id": str(payload["testset_id"]) },
                 "output": {
                     "id": str("%s-rez" % testClsPipeName),
-                    "type": "beh_mutable",
+                    "type": "beh.mutable",
                 },
                 "where": str(payload["where"]),
-                "score": str("APPLY BLOCK \"%s\" WITH (%s) EXTRACT(score)" %
+                "score": str("APPLY BLOCK \"%s\" WITH (object(SELECT %s) AS features) EXTRACT(score)" %
                     (clsBlockName, pipeline_conf["config"]["params"]["select"])),
                 "label": str(payload["label"]),
             }
@@ -214,9 +218,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
             resp_last_run = {}
             if rez_runs["statusCode"] != 404 and len(resp_runs) > 0:
-                print "calling: " + str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1]))
                 rez_last_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1])), [], {})
-                print rez_last_run
                 resp_last_run = json.loads(rez_last_run["response"])
                 runs = _decode_list(resp_runs)
 

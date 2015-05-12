@@ -28,6 +28,7 @@ $(function() {
             url: plugin_prefix + "/routes/dataset-details",
             dataType: "json",
             error: function (jqXHR, textStatus, errorThrown) {
+                console.log(jqXHR);
                 alert("Unable to load datasets: " + jqXHR.status + textStatus);
             },
             success: function(data) {
@@ -282,7 +283,8 @@ $(function() {
             url: plugin_prefix + "/routes/cls-details/"+pipeline,
             dataType: "json",
             error: function (jqXHR, textStatus, errorThrown) {
-                    alert("Unable to load datasets: " + jqXHR.status + textStatus);
+                    console.log(jqXHR);
+                    alert("Unable to load cls details: " + jqXHR.status + textStatus);
                   },
             success: function(data) {
                 $("#clsConfArea").val(JSON.stringify(data["pipeline"]["config"],null,4));
@@ -305,26 +307,34 @@ $(function() {
 
                     for(var idx = 0; idx < data["runs"].length; idx++) {
                         newElem = "<tr>";
-                        if("eval" in data["runs"][idx]) {
-                            newElem += "<td>"+data["runs"][idx]["id"]+"</td>";
-                            newElem += '<td>'+data["runs"][idx]["config"]["config"]["params"]["dataset"]["id"]+'</td>';
-                            newElem += '<td>'+data["runs"][idx]["config"]["config"]["params"]["where"]+'</td>';
-                            newElem += "<td>"+data["runs"][idx]["eval"]["auc"]+"</td>";
-                            newElem += "<td>"+data["runs"][idx]["eval"]["bestF"]["pr"]["f"]+"</td>";
+                        var run = data["runs"][idx];
+                        console.log(run);
+                        if("eval" in run && "eval" in run["eval"] && run["eval"]["eval"]["state"] != "error") {
+                            newElem += "<td>"+run["id"]+"</td>";
+                            newElem += '<td>'+run["eval"]["config"]["config"]["params"]["dataset"]["id"]+'</td>';
+                            newElem += '<td>'+run["eval"]["config"]["config"]["params"]["where"]+'</td>';
+                            newElem += "<td>"+run["eval"]["eval"]["status"]["auc"]+"</td>";
+                            newElem += "<td>"+run["eval"]["eval"]["status"]["bestF"]["pr"]["f"]+"</td>";
                             newElem += "<td><span class=\"glyphicon glyphicon-zoom-in detailsButton\" onclick=\"$.showEvaluationDetails("+idx+")\"></span></td>";
                         }
                         else {
-                            newElem += "<td>"+data["runs"][idx]["id"]+"</td>";
-                            if(data["runs"][idx]["state"] == "initializing") {
+                            newElem += "<td>"+run["id"]+"</td>";
+                            if("eval" in run && "eval" in run["eval"] && run["eval"]["eval"]["state"] == "error") {
+                                msg = "ERROR: " + run["eval"]["eval"]["progress"]["exception"]["error"];
+                            }
+                            else if("eval" in run && "config" in run["eval"] && run["eval"]["config"]["state"] == "error") {
+                                msg = "ERROR: " + run["eval"]["config"]["progress"]["exception"]["error"];
+                            }
+                            else if(run["state"] == "initializing") {
                                 msg = "Running...";
                                 $("#newEvaluationButton").prop('disabled', false);
                             }
-                            else if(!data["runs"][idx]["ran_eval"]) {
+                            else if(!run["ran_eval"]) {
                                 msg = "Not evaluated";
                                 $("#newEvaluationButton").prop('disabled', false);
                             }
-                            else if("error" in data["runs"][idx]["config"]) {
-                                msg = "ERROR: " + data["runs"][idx]["config"]["error"];
+                            else if("error" in run["eval"]["config"]) {
+                                msg = "ERROR: " +run["eval"]["config"]["error"];
                             } else {
                                 msg = "Not run yet";
                             }
@@ -333,7 +343,6 @@ $(function() {
                         newElem += "</tr>";
                         $("#existingClsEvalBody").append(newElem);
                     }
-                    
                 }
             }
         });
@@ -341,8 +350,8 @@ $(function() {
 
     $.showEvaluationDetails = function(run_id) {
         $("#evalDetailsModal").modal('show');
-        $("#evalDetailsModalConf").val(JSON.stringify($.evaluations["runs"][run_id]["config"]["config"]["params"],null,4));
-        $("#evalDetailsModalRez").val(JSON.stringify($.evaluations["runs"][run_id]["eval"],null,4));
+        $("#evalDetailsModalConf").val(JSON.stringify($.evaluations["runs"][run_id]["eval"]["config"]["config"]["params"],null,4));
+        $("#evalDetailsModalRez").val(JSON.stringify($.evaluations["runs"][run_id]["eval"]["eval"]["status"],null,4));
     }
 
     $.runAccuracyPipeline = function() {
