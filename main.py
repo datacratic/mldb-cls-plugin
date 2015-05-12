@@ -200,6 +200,24 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         print mldb.perform("POST", str("/v1/pipelines/%s/runs" % testClsPipeName), [], {})
 
         return "OK!"
+    
+    if verb == "GET" and remaining.startswith("/roccurve"):
+        dataset_name = remaining.split("/")[-1]
+        rez = mldb.perform("GET", "/v1/datasets/"+dataset_name+"/query", [], {})
+        if rez["statusCode"] == 404:
+            raise Exception("Pipeline does not exist!")
+        prez = json.loads(rez["response"])
+        curve = _decode_list(prez)
+
+        new_curve = []
+        for pt in curve:
+            new_pt = {}
+            for col in pt["columns"]:
+                #if col[0] not in ["falsePositiveRate", "truePositiveRate", "index"]: continue
+                new_pt[col[0]] = col[1]
+            new_curve.append(new_pt)
+        return new_curve
+
 
     if verb == "GET" and remaining == "/classifier-list":
         rez = mldb.perform("GET", "/v1/pipelines", [], {})

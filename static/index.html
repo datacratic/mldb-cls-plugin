@@ -7,6 +7,10 @@
         
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.10/c3.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.10/c3.min.js"></script>
 <!--
 <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/themes/smoothness/jquery-ui.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/jquery-ui.min.js"></script>
@@ -352,6 +356,116 @@ $(function() {
         $("#evalDetailsModal").modal('show');
         $("#evalDetailsModalConf").val(JSON.stringify($.evaluations["runs"][run_id]["eval"]["config"]["config"]["params"],null,4));
         $("#evalDetailsModalRez").val(JSON.stringify($.evaluations["runs"][run_id]["eval"]["eval"]["status"],null,4));
+        
+        var gaugeCharts = [['#aucChart', $.evaluations["runs"][run_id]["eval"]["eval"]["status"]["auc"]],
+                           ['#bestfChart', $.evaluations["runs"][run_id]["eval"]["eval"]["status"]["bestF"]["pr"]["f"]]];
+        for(var i=0; i<gaugeCharts.length; i++) {
+            var chart = c3.generate({
+                bindto: gaugeCharts[i][0],
+                data: {
+                    columns: [
+                        ['data', gaugeCharts[i][1]]
+                    ],
+                    type: 'gauge',
+                },
+                gauge: {
+                    units: '',
+                    max: 1
+                },
+                color: {
+                    pattern: ['#FF0000', '#F97600', '#F6C600', '#60B044'], // the three color levels for the percentage values.
+                    threshold: {
+                        values: [0.3, 0.6, 0.8, 1]
+                    }
+                },
+                size: {
+                    height: 120
+                }
+            });
+        }
+
+        $.ajax({
+            url: plugin_prefix + "/routes/roccurve/"+$.evaluations["runs"][run_id]["eval"]["config"]["config"]["params"]["output"]["id"],
+            dataType: "json",
+            error: function (jqXHR, textStatus, errorThrown) {
+                    console.log(jqXHR);
+                    alert("Unable to load roc curve: " + jqXHR.status + textStatus);
+                  },
+            success: function(data) {
+                data.sort(function(a, b){return a['index']-b['index'];});
+
+                var dx = ['x', 0];
+                var dy = ['Roc curve', 0];
+                for(var i=0; i<data.length; i++) {
+                    dy.push(data[i]["truePositiveRate"]);
+                    dx.push(data[i]["falsePositiveRate"]);
+                }
+
+                var chart = c3.generate({
+                    bindto: '#rocChart',
+                    data: {
+                        x: 'x',
+                        columns: [dx, dy]
+                    },
+                    size: {
+                        width: 550
+                    },
+                    axis: {
+                      x: {
+                        min: 0, max: 1,
+                        padding: {top:0, bottom:0},
+                        label: {
+                          text: 'False positive rate',
+                          position: 'outer-center',
+                        }
+                      },
+                      y: {
+                        min: 0, max: 1,
+                        padding: {top:0, bottom:0},
+                        label: {
+                          text: 'True positive rate',
+                          position: 'outer-middle',
+                        }
+                      }
+                    }
+                });
+               
+                var dx       = ['x']; 
+                var truePos  = ['True positives'];
+                var trueNeg  = ['True negatives'];
+                var falsePos = ['False positives'];
+                var falseNeg = ['False negatives'];
+                for(var i=0; i<data.length; i++) {
+                    dx.push(data[i]["score"]);
+                    truePos.push(data[i]["truePositives"]);
+                    trueNeg.push(data[i]["trueNegatives"]);
+                    falsePos.push(data[i]["falsePositives"]);
+                    falseNeg.push(data[i]["falseNegatives"]);
+                }
+
+                var chart = c3.generate({
+                    bindto: '#posnegChart',
+                    data: {
+                        x: 'x',
+                        columns: [
+                            dx, truePos, trueNeg, falsePos, falseNeg
+                        ],
+                        types: {
+                            'True positives': 'area-spline',
+                            'True negatives': 'area-spline',
+                            'False positives': 'area-spline',
+                            'False negatives': 'area-spline'
+                            // 'line', 'spline', 'step', 'area', 'area-step' are also available to stack
+                        },
+                        groups: [['truePos', 'trueNeg', 'falsePos', 'falseNeg']]
+                    },
+                    size: {
+                        width: 550
+                    }
+                });
+
+            }
+        });
     }
 
     $.runAccuracyPipeline = function() {
@@ -557,12 +671,72 @@ Classifier details
         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
         <h4>Evaluation details</h4>
      </div>
-      <div class="modal-body">
+     <div class="modal-body">
 
-        <h5>Configuration</h5>
-        <textarea rows="15" cols="75" id="evalDetailsModalConf"></textarea>
-        <h5>Results</h5>
-        <textarea rows="15" cols="75" id="evalDetailsModalRez"></textarea>
+        <ul class="nav nav-tabs">
+            <li role="presentation" class="active"><a href="#results" data-toggle="tab">Results</a></li>
+            <li role="presentation"><a href="#configuration" data-toggle="tab">Configuration</a></li>
+            <li role="presentation"><a href="#details" data-toggle="tab">Details</a></li>
+        </ul>
+        <div id="my-tab-content" class="tab-content">
+        <div class="tab-pane active" id="results">
+            <br>    
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h3 class="panel-title">Statistics</h3>
+              </div>
+              <div class="panel-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div id="aucChart"></div>
+                        AUC
+                    </div>
+                    <div class="col-md-6">
+                        <div id="bestfChart"></div>
+                        Best F1
+                    </div>
+                </div>
+              
+                </div>
+            </div>
+            <br>
+
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h3 class="panel-title">Roc Curve</h3>
+              </div>
+              <div class="panel-body">
+                <div id="rocChart">
+                
+                </div>
+              </div>
+            </div>
+            <br>
+            
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h3 class="panel-title">Pos/neg Graph</h3>
+              </div>
+              <div class="panel-body">
+                <div id="posnegChart">
+                
+                </div>
+              </div>
+            </div>
+            <br>
+
+
+
+            </div>
+            <div class="tab-pane" id="configuration">
+                <h5>Configuration</h5>
+                <textarea rows="15" cols="75" id="evalDetailsModalConf"></textarea>
+            </div>
+            <div class="tab-pane" id="details">
+                <h5>Details</h5>
+                <textarea rows="15" cols="75" id="evalDetailsModalRez"></textarea>
+            </div>
+        </div>
 
    </div><!-- /.modal-body -->
    </div><!-- /.modal-content -->
