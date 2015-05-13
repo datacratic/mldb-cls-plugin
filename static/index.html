@@ -417,6 +417,9 @@ $(function() {
                         label: {
                           text: 'False positive rate',
                           position: 'outer-center',
+                        },
+                        tick: {
+                            format: d3.format('.3g')
                         }
                       },
                       y: {
@@ -461,6 +464,23 @@ $(function() {
                     },
                     size: {
                         width: 550
+                    },
+                    axis: {
+                      x: {
+                        label: {
+                          text: 'Score',
+                          position: 'outer-center',
+                        },
+                        tick: {
+                            format: d3.format('.3g')
+                        }
+                      },
+                      y: {
+                        label: {
+                          text: '# of Records',
+                          position: 'outer-middle',
+                        }
+                      }
                     }
                 });
 
@@ -715,7 +735,7 @@ Classifier details
             
             <div class="panel panel-default">
               <div class="panel-heading">
-                <h3 class="panel-title">Pos/neg Graph</h3>
+                <h3 class="panel-title">Trade-off based on Score Threshold</h3>
               </div>
               <div class="panel-body">
                 <div id="posnegChart">
