@@ -19,6 +19,8 @@
     .detailsButton:hover {
         cursor: pointer;
     }
+
+    #evalDetailsModal .modal-dialog  {width:900px;}
     </style>
 
     <script type="text/javascript">
@@ -358,7 +360,9 @@ $(function() {
         $("#evalDetailsModalRez").val(JSON.stringify($.evaluations["runs"][run_id]["eval"]["eval"]["status"],null,4));
         
         var gaugeCharts = [['#aucChart', $.evaluations["runs"][run_id]["eval"]["eval"]["status"]["auc"]],
-                           ['#bestfChart', $.evaluations["runs"][run_id]["eval"]["eval"]["status"]["bestF"]["pr"]["f"]]];
+                           ['#bestfChart', $.evaluations["runs"][run_id]["eval"]["eval"]["status"]["bestF"]["pr"]["f"]],
+                           ['#precisionChart', $.evaluations["runs"][run_id]["eval"]["eval"]["status"]["bestF"]["pr"]["precision"]],
+                           ['#recallChart', $.evaluations["runs"][run_id]["eval"]["eval"]["status"]["bestF"]["pr"]["recall"]]];
         for(var i=0; i<gaugeCharts.length; i++) {
             var chart = c3.generate({
                 bindto: gaugeCharts[i][0],
@@ -392,10 +396,15 @@ $(function() {
                     alert("Unable to load roc curve: " + jqXHR.status + textStatus);
                   },
             success: function(data) {
-                data.sort(function(a, b){return a['index']-b['index'];});
-
+                data.sort(function(a, b){
+                    return a['score']-b['score'];
+                });
+                
+                /**
+                 *  ROC curve chart
+                 ***/
                 var dx = ['x', 0];
-                var dy = ['Roc curve', 0];
+                var dy = ['Threshold', 0];
                 for(var i=0; i<data.length; i++) {
                     dy.push(data[i]["truePositiveRate"]);
                     dx.push(data[i]["falsePositiveRate"]);
@@ -408,7 +417,7 @@ $(function() {
                         columns: [dx, dy]
                     },
                     size: {
-                        width: 550
+                        width: 840
                     },
                     axis: {
                       x: {
@@ -433,6 +442,9 @@ $(function() {
                     }
                 });
                
+                /**
+                 * tradeoff based on score threshold
+                 ***/
                 var dx       = ['x']; 
                 var truePos  = ['True positives'];
                 var trueNeg  = ['True negatives'];
@@ -463,7 +475,7 @@ $(function() {
                         groups: [['truePos', 'trueNeg', 'falsePos', 'falseNeg']]
                     },
                     size: {
-                        width: 550
+                        width: 840
                     },
                     axis: {
                       x: {
@@ -484,8 +496,58 @@ $(function() {
                     }
                 });
 
+                /**
+                 * precision/recall
+                 ***/
+                var dx        = ['x']; 
+                var precision = ['Precision'];
+                var recall    = ['Recall'];
+                var fscore    = ['F-score'];
+                for(var i=0; i<data.length; i++) {
+                    dx.push(data[i]["score"]);
+                    var pr = data[i]["precision"];
+                    var rec = data[i]["recall"];
+
+                    precision.push(pr);
+                    recall.push(rec);
+                    fscore.push(2*(pr*rec)/(pr+rec));
+                }
+
+                var chart = c3.generate({
+                    bindto: '#precisionRecallChart',
+                    data: {
+                        x: 'x',
+                        columns: [
+                            dx, precision, recall, fscore
+                        ]
+                    },
+                    size: {
+                        width: 840
+                    },
+                    axis: {
+                      x: {
+                        label: {
+                          text: 'Score',
+                          position: 'outer-center',
+                        },
+                        tick: {
+                            format: d3.format('.3g')
+                        }
+                      },
+                      y: {
+                        min: 0, max:1,
+                        padding: {top:10, bottom:0}
+                      }
+                    }
+                });
+
+                // trigger window resize event to force gauges to position corrently
+                $(window).trigger('resize');
             }
         });
+                
+        // trigger window resize event to force gauges to position corrently
+        $(window).trigger('resize');
     }
 
     $.runAccuracyPipeline = function() {
@@ -706,14 +768,22 @@ Classifier details
                 <h3 class="panel-title">Statistics</h3>
               </div>
               <div class="panel-body">
-                <div class="row">
-                    <div class="col-md-6">
+                <div class="row" style=" text-align: center;">
+                    <div class="col-md-3">
                         <div id="aucChart"></div>
-                        AUC
+                        AUC                
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-3">
                         <div id="bestfChart"></div>
-                        Best F1
+                        Best F
+                    </div>
+                    <div class="col-md-3">
+                        <div id="precisionChart"></div>
+                        Precision @ BestF
+                    </div>
+                    <div class="col-md-3">
+                        <div id="recallChart"></div>
+                        Recall @ BestF
                     </div>
                 </div>
               
@@ -726,9 +796,7 @@ Classifier details
                 <h3 class="panel-title">Roc Curve</h3>
               </div>
               <div class="panel-body">
-                <div id="rocChart">
-                
-                </div>
+                <div id="rocChart"></div>
               </div>
             </div>
             <br>
@@ -738,14 +806,20 @@ Classifier details
                 <h3 class="panel-title">Trade-off based on Score Threshold</h3>
               </div>
               <div class="panel-body">
-                <div id="posnegChart">
-                
-                </div>
+                <div id="posnegChart"></div>
               </div>
             </div>
             <br>
-
-
+            
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <h3 class="panel-title">Precision/recall based on Score Threshold</h3>
+              </div>
+              <div class="panel-body">
+                <div id="precisionRecallChart"></div>
+              </div>
+            </div>
+            <br>
 
             </div>
             <div class="tab-pane" id="configuration">
