@@ -160,7 +160,7 @@ $(function() {
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR);
-                alert("Error when posting config: " + jqXHR.status + textStatus);
+                alert("Error when posting config: " + jqXHR.status + textStatus + jqXHR.responseText);
             },
         });
         console.log(blob);
@@ -721,7 +721,7 @@ Classifier details
 <p>Default value: true</p>
           </div>
         </div>
-        <input type="text" class="form-control" id="testWhereExpr" placeholder="SQL where expression" value="true">
+        <input type="text" class="form-control" id="testWhereExpr" placeholder="SQL where expression" value="rowHash() % 5 = 1">
       </div>
 
 <!-- label expr -->
@@ -735,7 +735,7 @@ Classifier details
 <p>Type: SqlRowExpression</p>
           </div>
         </div>
-        <input type="text" class="form-control" id="testLabelExpr" placeholder="label">
+        <input type="text" class="form-control" id="testLabelExpr" placeholder="label" value="label='1'">
       </div>
       
     <button class="btn btn-primary" onClick="$.runAccuracyPipeline();">
@@ -897,7 +897,7 @@ Classifier details
           </div>
         </div>
 
-        <input type="text" class="form-control" id="selectExpr" placeholder="SQL select expression" value="*">
+        <input type="text" class="form-control" id="selectExpr" placeholder="SQL select expression" value="* EXCLUDING (label)">
       </div>
 
 <!-- where expr -->
@@ -912,7 +912,7 @@ Classifier details
 <p>Default value: true</p>
           </div>
         </div>
-        <input type="text" class="form-control" id="whereExpr" placeholder="SQL where expression" value="true">
+        <input type="text" class="form-control" id="whereExpr" placeholder="SQL where expression" value="rowHash() % 5 != 1">
       </div>
 
 <!-- label expr -->
@@ -926,7 +926,7 @@ Classifier details
 <p>Type: SqlRowExpression</p>
           </div>
         </div>
-        <input type="text" class="form-control" id="labelExpr" placeholder="label">
+        <input type="text" class="form-control" id="labelExpr" placeholder="label" value="label='1'">
       </div>
 <!-- not working for now
     <div class="text-right">

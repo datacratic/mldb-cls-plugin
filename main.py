@@ -236,9 +236,13 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
             resp_last_run = {}
             if rez_runs["statusCode"] != 404 and len(resp_runs) > 0:
-                rez_last_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1])), [], {})
-                resp_last_run = json.loads(rez_last_run["response"])
-                runs = _decode_list(resp_runs)
+                try:
+                    rez_last_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1])), [], {})
+                    resp_last_run = json.loads(rez_last_run["response"])
+                    runs = _decode_list(resp_runs)
+                except Exception, e:
+                    mldb.log(str(e))
+                    runs = []
 
             else:
                 runs = []
