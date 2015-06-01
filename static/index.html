@@ -598,6 +598,7 @@ $(function() {
             contentType: "application/json",
             success:function(){
                 $("#requestsuccess").show();
+                setTimeout(function(){$("#requestsuccess").fadeOut();},3000);
                 loadDatasets();
             },
             error: function(){ $("#requestfailure").show(); }
@@ -700,7 +701,7 @@ $(function() {
   -->
 
 <span id="exploreDataset" class="hidden">
-
+    <iframe frameborder="0" height="1000" width="1200" align="center"  seamless="seamless" src="./pivot.html"></iframe>
 </span>
 
 
