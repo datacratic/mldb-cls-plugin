@@ -171,19 +171,23 @@ $(function() {
 
     $.navBarButton = function(button) {
 
-        if(button == "existingClsBtn") {
-            $.refreshClsList();
-            $("#existingClsBtn").addClass("active");
-            $("#newClsBtn").removeClass("active");
-            $("#existingPipeline").removeClass("hidden");
-            $("#newPipeline").addClass("hidden");
-        } else {
-            $("#existingClsBtn").removeClass("active");
-            $("#newClsBtn").addClass("active");
-            $("#existingPipeline").addClass("hidden");
-            $("#newPipeline").removeClass("hidden");
-        }
+        var allSections = ["existingPipeline", "newPipeline", "importDataset", "exploreDataset"]; //, "clsDetail"];
+        var allButtons = ["existingClsBtn", "newClsBtn", "importDatasetBtn", "exploreDatasetBtn"];
+        
+        var button_idx = allButtons.indexOf(button);
+        if(button_idx == -1)
+            alert("Unknown button: " + button);
 
+        for(var i=0; i<allButtons.length; i++) {
+            if(i==button_idx) {
+                $("#"+allButtons[i]).addClass("active");
+                $("#"+allSections[i]).removeClass("hidden");
+            }
+            else {
+                $("#"+allButtons[i]).removeClass("active");
+                $("#"+allSections[i]).addClass("hidden");
+            }
+        }
 
         //if(!$("#clsDetail").hasClass("hidden")) {
         $("#clsDetail").addClass("hidden");
@@ -580,6 +584,28 @@ $(function() {
         $.showClsDetails($("#testPipelineName").val());
     }
 
+
+    $("#loadForm").on("submit", function(e){
+        e.preventDefault();
+        $("#requestsuccess").hide();
+        $("#requestfailure").hide();
+        var payload = {name: $("#dataset_name").val(),
+                        url: $("#dataset_url").val()};
+        $.ajax({type: "POST",
+            dataType: "json",
+            url: "../loadcsv",
+            data: JSON.stringify(payload),
+            contentType: "application/json",
+            success:function(){
+                $("#requestsuccess").show();
+                loadDatasets();
+            },
+            error: function(){ $("#requestfailure").show(); }
+        });
+    });
+
+
+
     loadDatasets();
     $.refreshClsList();
     loadClsPresets();
@@ -605,15 +631,79 @@ $(function() {
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav">
         <li class="active" id="existingClsBtn">
-            <a href="#" onclick="$.navBarButton('existingClsBtn');">Existing <span class="sr-only">(current)</span></a>
+            <a href="#" onclick="$.navBarButton('existingClsBtn');">Existing cls<span class="sr-only">(current)</span></a>
         </li>
         <li id="newClsBtn">
-            <a href="#" onclick="$.navBarButton('newClsBtn');">New</a>
+            <a href="#" onclick="$.navBarButton('newClsBtn');">New cls</a>
+        </li>
+        <li id="importDatasetBtn">
+            <a href="#" onclick="$.navBarButton('importDatasetBtn');">Load dataset</a>
+        </li>
+        <li id="exploreDatasetBtn">
+            <a href="#" onclick="$.navBarButton('exploreDatasetBtn');">Explore dataset</a>
         </li>
       </ul>
     </div><!-- /.navbar-collapse -->
   </div><!-- /.container-fluid -->
   </nav>
+  
+<!-- 
+*********************************
+    Import dataset
+*********************************
+  -->
+
+<span id="importDataset" class="hidden">
+<h1>Load a CSV dataset</h1>
+  <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title">Dataset configuration</h3>
+      </div>
+      <div class="panel-body">
+        <div class="row">
+    <div id="requestsuccess" class="alert alert-success col-lg-4 col-lg-offset-4" role="alert" style="display: none;">Success :)</div>
+    <div id="requestfailure" class="alert alert-danger col-lg-4 col-lg-offset-4" role="alert" style="display: none;">Error :(</div>
+        </div>
+
+
+        <form id="loadForm" class="form-horizontal">
+        <div class="row">
+              <div class="col-xs-6 col-md-4 control-label">ID</div>
+            <div class="col-xs-6 col-md-4">
+    <input type="text" class="form-control" id="dataset_name" placeholder="Name your dataset (no spaces)">
+
+            </div>
+        </div>
+            <div class="row">
+                <div class="col-xs-6 col-md-4 control-label">URL</div>
+            <div class="col-xs-6 col-md-4">
+    <input type="text" class="form-control" id="dataset_url" placeholder="URL to CSV file to load">
+
+            </div>
+            </div>
+        <div class="row">
+          <div class="col-xs-6 col-md-4 control-label"></div>
+              <div class="col-xs-6 col-md-4">
+                    <button type="submit" class="btn btn-default">Submit</button>
+              </div>
+        </div>
+        </form>
+      </div>
+    </div>
+</span>
+
+
+<!-- 
+*********************************
+    Explore dataset
+*********************************
+  -->
+
+<span id="exploreDataset" class="hidden">
+
+</span>
+
+
 
 <!-- 
 *********************************
