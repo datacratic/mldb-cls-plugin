@@ -71,10 +71,13 @@ $(function() {
                     dropdown.append($("<option />").val(key).text(key));
                 };
 
-                dropdown.change(function() {
+                var updateAlgo = function() {
                     var key = $("#algo option:selected").val();
                     $("#algoConf").val(clsPresets[key]);
-                });
+                };
+
+                dropdown.change(updateAlgo);
+                updateAlgo();
             }
         });
     }
