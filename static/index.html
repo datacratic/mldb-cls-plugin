@@ -44,7 +44,7 @@ $(function() {
                 console.log(dropdown);
                     dropdown.find('option').remove();
                     $.each(data, function() {
-                       dropdown.append($("<option />").val(this.id).text(this.id+" <type:"+this.type+", rowCount:"+this.rowCount+">"));
+                       dropdown.append($("<option />").val(this.id).text(this.id+" <type:"+this.type+">"));
                     });
                 }
             }
@@ -263,11 +263,7 @@ $(function() {
                     var newElem = "<tr id=\"run"+this.id+"\">";
                     newElem += "<td>"+this.id+"</td>";
                     newElem += "<td>"+this.state+"</td>";
-                    if(this.params && this.params.configuration && +this.params.configuration.type) {
-                        newElem += "<td>"+this.params.configuration.type+"</td>";
-                    } else {
-                        newElem += "<td>-</td>";
-                    }
+
                     if(this.params && this.params.dataset) {
                         newElem += "<td>"+this.params.dataset.id+"</td>";
                     } else {
@@ -278,8 +274,8 @@ $(function() {
                     var lastRun = this.runs.length == 0 ? "Never" : this.last_run.state
                     newElem += "<td>"+lastRun+"</td>";
 
-                    newElem += '<td><button class="btn btn-primary btn-sm" onClick="$.newRun(\''+this.id+'\', true);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>';
-                    newElem += '<button class="btn btn-primary btn-sm" onClick="$.showClsDetails(\''+this.id+'\');"><span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span> Details</button>';
+                    newElem += '<td>';
+                    newElem += '<button class="btn btn-primary btn-sm" onClick="$.showClsDetails(\''+this.id+'\');"><span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span> Details</button> &nbsp; ';
                     newElem += '<div class="btn-group"><button class="btn btn-danger btn-sm dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete <span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a href="#" onClick="$.deletePipeline(\''+this.id+'\');">Confirm</a></li></ul></div>';
                     newElem += "</td></tr>";
                     clsList.append(newElem);
@@ -309,14 +305,15 @@ $(function() {
                 $("#existingClsEvalBody").empty();
                 $.evaluations = data;
                 $("#newEvaluationButton").prop('disabled', true);
-                if(data["runs"].length == 0) {
-                    $("#latestClsRun").append("None");
-                }
-                else {
+                if(data["runs"].length != 0) {
                     lastRun = data["runs"][data["runs"].length-1]["id"];
                     $("#latestClsRun").append(lastRun);
                     $("#testRunId").val(parseInt(lastRun)+1);
                     $("#testPipelineName").val(pipeline);
+                    $("#testDatasetId").val(data.pipeline.config.params.dataset.id);
+                    $("#testWhereExpr").val("NOT "+data.pipeline.config.params.where);
+                    $("#testLabelExpr").val(data.pipeline.config.params.label);
+                    console.log("hi", data);
 
                     for(var idx = 0; idx < data["runs"].length; idx++) {
                         newElem = "<tr>";
@@ -720,7 +717,6 @@ $(function() {
 <tr>
     <th>ID</th>
     <th>Status</th>
-    <th>Algo</th>
     <th>Dataset</th>
     <th>Runs</th>
     <th>Last Run</th>
@@ -792,7 +788,7 @@ Classifier details
 <input type="hidden" id="testRunId" value="">
 <!-- dataset id -->
   <div class="form-group">
-      <label>Run: </label><span id="latestClsRun"></span>
+      <label>Run:</label> <span id="latestClsRun"></span>
 </div>
 
 <!-- dataset id -->

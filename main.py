@@ -89,9 +89,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
             datasets.append({
                 "id": str(dataset),
-                "type": str(resp["type"]),
-                "rowCount": resp["status"]["rowCount"],
-                "valueCount": resp["status"]["valueCount"]
+                "type": str(resp["type"])
             })
         
         return datasets
