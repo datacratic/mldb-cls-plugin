@@ -148,7 +148,7 @@ $(function() {
         addKey(blob["params"], "algoConf", "configuration", "Algorithm configuration", true, JSON.parse);
         addKey(blob["params"], "eqFactor", "equalizationFactor", "Equalization factor", false, parseFloat);
         addKey(blob["params"], "task", "mode", "Task", true);
-        blob["params"]["classifierModelUri"] = "file://cls-plugin-"+blob["id"]+".cls"
+        blob["params"]["classifierModelUri"] = "file://models/cls-plugin-"+blob["id"]+".cls"
 
         $.ajax({
             url: '/v1/pipelines/'+blob["id"],
