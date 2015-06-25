@@ -141,7 +141,7 @@ $(function() {
             }
         };
 
-        addKey(blob, "inputId", "id", "Pipeline ID", false);
+        addKey(blob, "inputId", "id", "Procedure ID", false);
         addKey(blob["params"], "selectExpr", "select", "Select expression", false);
         addKey(blob["params"], "whereExpr", "where", "Where expression", false);
         addKey(blob["params"], "labelExpr", "label", "Label expression", true);
@@ -171,7 +171,7 @@ $(function() {
 
     $.navBarButton = function(button) {
 
-        var allSections = ["existingPipeline", "newPipeline", "importDataset", "exploreDataset"]; //, "clsDetail"];
+        var allSections = ["existingProcedure", "newProcedure", "importDataset", "exploreDataset"]; //, "clsDetail"];
         var allButtons = ["existingClsBtn", "newClsBtn", "importDatasetBtn", "exploreDatasetBtn"];
         
         var button_idx = allButtons.indexOf(button);
@@ -230,7 +230,7 @@ $(function() {
                 }
     };
 
-    $.deletePipeline = function(procedure) {
+    $.deleteProcedure = function(procedure) {
         $.ajax({
             url: plugin_prefix + "/routes/del-procedure/"+procedure,
             type: 'DELETE',
@@ -276,7 +276,7 @@ $(function() {
 
                     newElem += '<td>';
                     newElem += '<button class="btn btn-primary btn-sm" onClick="$.showClsDetails(\''+this.id+'\');"><span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span> Details</button> &nbsp; ';
-                    newElem += '<div class="btn-group"><button class="btn btn-danger btn-sm dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete <span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a href="#" onClick="$.deletePipeline(\''+this.id+'\');">Confirm</a></li></ul></div>';
+                    newElem += '<div class="btn-group"><button class="btn btn-danger btn-sm dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete <span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a href="#" onClick="$.deleteProcedure(\''+this.id+'\');">Confirm</a></li></ul></div>';
                     newElem += "</td></tr>";
                     clsList.append(newElem);
                 });
@@ -286,7 +286,7 @@ $(function() {
 
     $.showClsDetails = function(procedure) {
         $("#clsDetail").removeClass("hidden");
-        $("#existingPipeline").addClass("hidden");
+        $("#existingProcedure").addClass("hidden");
 
         $.ajax({
             url: plugin_prefix + "/routes/cls-details/"+procedure,
@@ -309,7 +309,7 @@ $(function() {
                     lastRun = data["runs"][data["runs"].length-1]["id"];
                     $("#latestClsRun").append(lastRun);
                     $("#testRunId").val(parseInt(lastRun)+1);
-                    $("#testPipelineName").val(procedure);
+                    $("#testProcedureName").val(procedure);
                     $("#testDatasetId").val(data.procedure.config.params.dataset.id);
                     $("#testWhereExpr").val("NOT "+data.procedure.config.params.where);
                     $("#testLabelExpr").val(data.procedure.config.params.label);
@@ -554,13 +554,13 @@ $(function() {
         $(window).trigger('resize');
     }
 
-    $.runAccuracyPipeline = function() {
+    $.runAccuracyProcedure = function() {
         $("#newEvalModal").modal('hide');
         $.ajax({
             url: plugin_prefix + "/routes/runeval",
             type: 'PUT',
             data: JSON.stringify({
-                "procedure_name": $("#testPipelineName").val(),
+                "procedure_name": $("#testProcedureName").val(),
                 "run_id":        $("#testRunId").val(),
                 "testset_id":    $("#testDatasetId").val(),
                 "where":         $("#testWhereExpr").val(),
@@ -570,7 +570,7 @@ $(function() {
             dataType: "json",
             success: function(data) {
                 //alert("Evaluation finished");submitted");
-                $.showClsDetails($("#testPipelineName").val());
+                $.showClsDetails($("#testProcedureName").val());
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR);
@@ -578,7 +578,7 @@ $(function() {
             },
         });
         
-        $.showClsDetails($("#testPipelineName").val());
+        $.showClsDetails($("#testProcedureName").val());
     }
 
 
@@ -709,7 +709,7 @@ $(function() {
 *********************************
   -->
 
-<span id="existingPipeline">
+<span id="existingProcedure">
 <h1>Existing classifiers</h1>
 
 <table class="table" id="existingClsList">
@@ -784,7 +784,7 @@ Classifier details
      </div>
       <div class="modal-body">
 
-<input type="hidden" id="testPipelineName" value="">
+<input type="hidden" id="testProcedureName" value="">
 <input type="hidden" id="testRunId" value="">
 <!-- dataset id -->
   <div class="form-group">
@@ -828,7 +828,7 @@ Classifier details
         <input type="text" class="form-control" id="testLabelExpr" placeholder="label" value="label='1'">
       </div>
       
-    <button class="btn btn-primary" onClick="$.runAccuracyPipeline();">
+    <button class="btn btn-primary" onClick="$.runAccuracyProcedure();">
           <span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> Evaluate</button>
 </div>
    </div><!-- /.modal-content -->
@@ -936,7 +936,7 @@ Classifier details
 *********************************
   -->
 
-<span id="newPipeline" class="hidden">
+<span id="newProcedure" class="hidden">
 <h1>New classifier</h1>
 
 <form>
@@ -948,7 +948,7 @@ Classifier details
 
       <div class="form-group">
         <label for="inputId">Classifier ID</label>
-        <input type="text" class="form-control" id="inputId" placeholder="Pipeline ID">
+        <input type="text" class="form-control" id="inputId" placeholder="Procedure ID">
       </div>
       <div class="form-group">
         <label for="task">Task</label>

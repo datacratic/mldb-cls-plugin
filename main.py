@@ -98,7 +98,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         procedure_name = remaining.split("/")[-1]
         rez = mldb.perform("GET", "/v1/procedures/"+procedure_name, [], {})
         if rez["statusCode"] == 404:
-            raise Exception("Pipeline does not exist!")
+            raise Exception("Procedure does not exist!")
         prez = json.loads(rez["response"])
         procedure_details = _decode_dict(prez)
             
@@ -155,7 +155,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         
         rez = mldb.perform("GET", str("/v1/procedures/"+procedure_name), [], {})
         if rez["statusCode"] == 404:
-            raise Exception("Pipeline does not exist!")
+            raise Exception("Procedure does not exist!")
 
         procedure_conf = json.loads(rez["response"])
 
@@ -166,20 +166,20 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         procedureRunName = get_accuracy_procedure_name(procedure_name, lastRun)
 
 
-        clsBlockName = "%s-classifyBlock-" % procedureRunName
-        print mldb.perform("DELETE", str("/v1/functions/" + clsBlockName), [], {})
-        applyBlockConfig = {
-            "id": str(clsBlockName),
+        clsFunctionName = "%s-classifyFunction-" % procedureRunName
+        print mldb.perform("DELETE", str("/v1/functions/" + clsFunctionName), [], {})
+        applyFunctionConfig = {
+            "id": str(clsFunctionName),
             "type": "classifier.apply",
             "params": {
                 "classifierModelUri": str(procedure_conf["config"]["params"]["classifierModelUri"])
             }
         }
-        print mldb.perform("PUT", str("/v1/functions/"+clsBlockName), [], applyBlockConfig)
+        print mldb.perform("PUT", str("/v1/functions/"+clsFunctionName), [], applyFunctionConfig)
 
         now = datetime.datetime.now().isoformat()
         testClsPipeName = procedureRunName + "-" + now
-        testClsPipelineConfig = {
+        testClsProcedureConfig = {
             "id": str(testClsPipeName),
             "type": "accuracy",
             "params": {
@@ -189,12 +189,12 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
                     "type": "beh.mutable",
                 },
                 "where": str(payload["where"]),
-                "score": str("APPLY BLOCK \"%s\" WITH (object(SELECT %s) AS features) EXTRACT(score)" %
-                    (clsBlockName, procedure_conf["config"]["params"]["select"])),
+                "score": str("APPLY FUNCTION \"%s\" WITH (object(SELECT %s) AS features) EXTRACT(score)" %
+                    (clsFunctionName, procedure_conf["config"]["params"]["select"])),
                 "label": str(payload["label"]),
             }
         }
-        print mldb.perform("PUT",  str("/v1/procedures/%s" % testClsPipeName), [], testClsPipelineConfig)
+        print mldb.perform("PUT",  str("/v1/procedures/%s" % testClsPipeName), [], testClsProcedureConfig)
         print mldb.perform("POST", str("/v1/procedures/%s/runs" % testClsPipeName), [], {})
 
         return "OK!"
@@ -203,7 +203,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         dataset_name = remaining.split("/")[-1]
         rez = mldb.perform("GET", "/v1/datasets/"+dataset_name+"/query", [], {})
         if rez["statusCode"] == 404:
-            raise Exception("Pipeline does not exist!")
+            raise Exception("Procedure does not exist!")
         prez = json.loads(rez["response"])
         curve = _decode_list(prez)
 
@@ -310,7 +310,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         procedure_name = remaining_split[-1]
         rez = mldb.perform("GET", "/v1/procedures/"+procedure_name, [], {})
         if rez["statusCode"] == 404:
-            raise Exception("Pipeline does not exist!")
+            raise Exception("Procedure does not exist!")
 
         deleteLog = []
         def doDelete(route):
