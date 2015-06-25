@@ -73,8 +73,8 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             rv[key] = value
         return rv
 
-    def get_accuracy_pipeline_name(pipeline, run):
-        return "cls-plugin-%s-RUN:%s" % (pipeline, run)
+    def get_accuracy_procedure_name(procedure, run):
+        return "cls-plugin-%s-RUN:%s" % (procedure, run)
     
 
     if verb == "GET" and remaining == "/dataset-details":
@@ -95,40 +95,40 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         return datasets
    
     if verb == "GET" and remaining.startswith("/cls-details"):
-        pipeline_name = remaining.split("/")[-1]
-        rez = mldb.perform("GET", "/v1/pipelines/"+pipeline_name, [], {})
+        procedure_name = remaining.split("/")[-1]
+        rez = mldb.perform("GET", "/v1/procedures/"+procedure_name, [], {})
         if rez["statusCode"] == 404:
             raise Exception("Pipeline does not exist!")
         prez = json.loads(rez["response"])
-        pipeline_details = _decode_dict(prez)
+        procedure_details = _decode_dict(prez)
             
-        rez_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pipeline_name), [], {})
+        rez_runs = mldb.perform("GET", str("/v1/procedures/%s/runs" % procedure_name), [], {})
         resp_runs = json.loads(rez_runs["response"])
 
         resp_all_run = []
         for run_id in resp_runs:
-            rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline_name, run_id)), [], {})
+            rez_all_run = mldb.perform("GET", str("/v1/procedures/%s/runs/%s" % (procedure_name, run_id)), [], {})
             run_details = _decode_dict(json.loads(rez_all_run["response"]))
             run_details["ran_eval"] = False
 
-            # do we have an accuracy pipeline for this run?
-            pipelineRunName = get_accuracy_pipeline_name(pipeline_name, run_id)
+            # do we have an accuracy procedure for this run?
+            procedureRunName = get_accuracy_procedure_name(procedure_name, run_id)
 
-            rez_all_run = mldb.perform("GET", str("/v1/pipelines"), [], {})
+            rez_all_run = mldb.perform("GET", str("/v1/procedures"), [], {})
             for pname in json.loads(rez_all_run["response"]):
-                if pname.startswith(pipelineRunName):
+                if pname.startswith(procedureRunName):
                     eval_details = {}
                     run_details["ran_eval"] = True
 
-                    rez_all_run = mldb.perform("GET", str("/v1/pipelines/%s" % pname), [], {})
+                    rez_all_run = mldb.perform("GET", str("/v1/procedures/%s" % pname), [], {})
                     eval_details["config"] = _decode_dict(json.loads(rez_all_run["response"]))
 
-                    eval_pipeline_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pname), [], {})
-                    eval_pipeline_runs = json.loads(eval_pipeline_runs["response"])
-                    if "error" not in eval_pipeline_runs and len(eval_pipeline_runs) > 0:
-                        run_id = eval_pipeline_runs[-1]
+                    eval_procedure_runs = mldb.perform("GET", str("/v1/procedures/%s/runs" % pname), [], {})
+                    eval_procedure_runs = json.loads(eval_procedure_runs["response"])
+                    if "error" not in eval_procedure_runs and len(eval_procedure_runs) > 0:
+                        run_id = eval_procedure_runs[-1]
                         rez_all_run = mldb.perform("GET", 
-                                str("/v1/pipelines/%s/runs/%s" % (pname, run_id)), [], {})
+                                str("/v1/procedures/%s/runs/%s" % (pname, run_id)), [], {})
                         run_perf = _decode_dict(json.loads(rez_all_run["response"]))
                         if "state" in run_perf:
                             eval_details["eval"] = _decode_dict(run_perf)
@@ -138,47 +138,47 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
             resp_all_run.append(run_details)
 
-        return {"pipeline": pipeline_details,
+        return {"procedure": procedure_details,
                 "runs": resp_all_run}
 
     if verb == "PUT" and remaining.startswith("/runeval"):
         payload = json.loads(payload)
-        if not "pipeline_name" in payload:
+        if not "procedure_name" in payload:
             print payload
             raise Exception("missing key in payload!")
 
-        pipeline_name = payload["pipeline_name"]
+        procedure_name = payload["procedure_name"]
         
-        if pipeline_name == "":
-            raise Exception(str("pipeline_name (%s) can't be empty!"
-                % (pipeline_name)))
+        if procedure_name == "":
+            raise Exception(str("procedure_name (%s) can't be empty!"
+                % (procedure_name)))
         
-        rez = mldb.perform("GET", str("/v1/pipelines/"+pipeline_name), [], {})
+        rez = mldb.perform("GET", str("/v1/procedures/"+procedure_name), [], {})
         if rez["statusCode"] == 404:
             raise Exception("Pipeline does not exist!")
 
-        pipeline_conf = json.loads(rez["response"])
+        procedure_conf = json.loads(rez["response"])
 
-        # get latest pipeline run
-        rez = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pipeline_name), [], {})
-        pipeline_runs = json.loads(rez["response"])
-        lastRun = pipeline_runs[-1]
-        pipelineRunName = get_accuracy_pipeline_name(pipeline_name, lastRun)
+        # get latest procedure run
+        rez = mldb.perform("GET", str("/v1/procedures/%s/runs" % procedure_name), [], {})
+        procedure_runs = json.loads(rez["response"])
+        lastRun = procedure_runs[-1]
+        procedureRunName = get_accuracy_procedure_name(procedure_name, lastRun)
 
 
-        clsBlockName = "%s-classifyBlock-" % pipelineRunName
-        print mldb.perform("DELETE", str("/v1/blocks/" + clsBlockName), [], {})
+        clsBlockName = "%s-classifyBlock-" % procedureRunName
+        print mldb.perform("DELETE", str("/v1/functions/" + clsBlockName), [], {})
         applyBlockConfig = {
             "id": str(clsBlockName),
             "type": "classifier.apply",
             "params": {
-                "classifierModelUri": str(pipeline_conf["config"]["params"]["classifierModelUri"])
+                "classifierModelUri": str(procedure_conf["config"]["params"]["classifierModelUri"])
             }
         }
-        print mldb.perform("PUT", str("/v1/blocks/"+clsBlockName), [], applyBlockConfig)
+        print mldb.perform("PUT", str("/v1/functions/"+clsBlockName), [], applyBlockConfig)
 
         now = datetime.datetime.now().isoformat()
-        testClsPipeName = pipelineRunName + "-" + now
+        testClsPipeName = procedureRunName + "-" + now
         testClsPipelineConfig = {
             "id": str(testClsPipeName),
             "type": "accuracy",
@@ -190,12 +190,12 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
                 },
                 "where": str(payload["where"]),
                 "score": str("APPLY BLOCK \"%s\" WITH (object(SELECT %s) AS features) EXTRACT(score)" %
-                    (clsBlockName, pipeline_conf["config"]["params"]["select"])),
+                    (clsBlockName, procedure_conf["config"]["params"]["select"])),
                 "label": str(payload["label"]),
             }
         }
-        print mldb.perform("PUT",  str("/v1/pipelines/%s" % testClsPipeName), [], testClsPipelineConfig)
-        print mldb.perform("POST", str("/v1/pipelines/%s/runs" % testClsPipeName), [], {})
+        print mldb.perform("PUT",  str("/v1/procedures/%s" % testClsPipeName), [], testClsPipelineConfig)
+        print mldb.perform("POST", str("/v1/procedures/%s/runs" % testClsPipeName), [], {})
 
         return "OK!"
     
@@ -218,24 +218,24 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
 
 
     if verb == "GET" and remaining == "/classifier-list":
-        rez = mldb.perform("GET", "/v1/pipelines", [], {})
-        pipelines = []
-        for pipeline in json.loads(rez["response"]):
+        rez = mldb.perform("GET", "/v1/procedures", [], {})
+        procedures = []
+        for procedure in json.loads(rez["response"]):
             # get the piepline details
-            rez = mldb.perform("GET", str("/v1/pipelines/%s" % pipeline), [], {})
+            rez = mldb.perform("GET", str("/v1/procedures/%s" % procedure), [], {})
             resp = json.loads(rez["response"])
             if "type" in resp and resp["type"] != "classifier":
                 continue
             if resp["id"].startswith("cls-plugin-"): continue
 
             # get the runs for the piepeline
-            rez_runs = mldb.perform("GET", str("/v1/pipelines/%s/runs" % pipeline), [], {})
+            rez_runs = mldb.perform("GET", str("/v1/procedures/%s/runs" % procedure), [], {})
             resp_runs = json.loads(rez_runs["response"])
 
             resp_last_run = {}
             if rez_runs["statusCode"] != 404 and len(resp_runs) > 0:
                 try:
-                    rez_last_run = mldb.perform("GET", str("/v1/pipelines/%s/runs/%s" % (pipeline, resp_runs[-1])), [], {})
+                    rez_last_run = mldb.perform("GET", str("/v1/procedures/%s/runs/%s" % (procedure, resp_runs[-1])), [], {})
                     resp_last_run = json.loads(rez_last_run["response"])
                     runs = _decode_list(resp_runs)
                 except Exception, e:
@@ -245,15 +245,15 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             else:
                 runs = []
 
-            pipelines.append({
-                "id": str(pipeline),
+            procedures.append({
+                "id": str(procedure),
                 "state": str(resp["state"]),
                 "type": str(resp["type"]) if "type" in resp else "", #check no longer required when MLDB-572 is fixed
                 "params": _decode_dict(resp["config"]["params"]) if "config" in resp else {},
                 "runs": runs,
                 "last_run": _decode_dict(resp_last_run)
             })
-        return pipelines
+        return procedures
 
     if verb == "GET" and remaining == "/cls-presets":
         lines2 = [x.strip() for x in open(mldb.plugin.get_plugin_dir() +"/classifier-config.txt") if len(x.strip())>0 and x[0] != "#"]
@@ -303,12 +303,12 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         print configs
         return configs
 
-    if verb == "DELETE" and remaining.startswith("/del-pipeline/"):
+    if verb == "DELETE" and remaining.startswith("/del-procedure/"):
         remaining_split = remaining.split("/")
         if len(remaining_split) != 3:
-            raise Exception("Need to specify pipeline name!")
-        pipeline_name = remaining_split[-1]
-        rez = mldb.perform("GET", "/v1/pipelines/"+pipeline_name, [], {})
+            raise Exception("Need to specify procedure name!")
+        procedure_name = remaining_split[-1]
+        rez = mldb.perform("GET", "/v1/procedures/"+procedure_name, [], {})
         if rez["statusCode"] == 404:
             raise Exception("Pipeline does not exist!")
 
@@ -320,15 +320,15 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             deleteLog.append(msg)
 
         # delete all derived entities
-        for entity_type in ["blocks", "datasets", "pipelines"]:
+        for entity_type in ["functions", "datasets", "procedures"]:
             rez = mldb.perform("GET", str("/v1/"+entity_type), [], {})
             for entity in json.loads(rez["response"]):
-                if entity.startswith("cls-plugin-%s-RUN" % pipeline_name):
+                if entity.startswith("cls-plugin-%s-RUN" % procedure_name):
                     full_entity = str("/v1/%s/%s" % (entity_type, entity))
                     doDelete(full_entity)
 
-        # delete the main pipeline
-        doDelete(str("/v1/pipelines/" + pipeline_name))
+        # delete the main procedure
+        doDelete(str("/v1/procedures/" + procedure_name))
 
         return deleteLog
 

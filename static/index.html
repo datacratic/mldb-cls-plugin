@@ -106,7 +106,7 @@ $(function() {
 
     $("#createButton").click(function() {
         if(!validAlgoConfJson()) {
-            alert("Must have a valid algorithm configuration to create a pipeline");
+            alert("Must have a valid algorithm configuration to create a procedure");
             return false;
         }
                     
@@ -151,7 +151,7 @@ $(function() {
         blob["params"]["classifierModelUri"] = "file://models/cls-plugin-"+blob["id"]+".cls"
 
         $.ajax({
-            url: '/v1/pipelines/'+blob["id"],
+            url: '/v1/procedures/'+blob["id"],
             type: 'PUT',
             data: JSON.stringify(blob),
             contentType: "application/json",
@@ -194,8 +194,8 @@ $(function() {
         //}
     };
 
-    $.newRun = function(pipeline, clsListing) {
-        var url = '/v1/pipelines/'+pipeline+'/runs';
+    $.newRun = function(procedure, clsListing) {
+        var url = '/v1/procedures/'+procedure+'/runs';
         console.log(url);
         $.ajax({
             url: url,
@@ -209,7 +209,7 @@ $(function() {
                 if(clsListing) {
                     $.refreshClsList();
                 } else {
-                    $.showClsDetails(pipeline);
+                    $.showClsDetails(procedure);
                 }
             },
             error: function (jqXHR, textStatus, errorThrown) {
@@ -218,7 +218,7 @@ $(function() {
                 if(clsListing) {
                     $.refreshClsList();
                 } else {
-                    $.showClsDetails(pipeline);
+                    $.showClsDetails(procedure);
                 }
             },
         });
@@ -226,13 +226,13 @@ $(function() {
                 if(clsListing) {
                     $.refreshClsList();
                 } else {
-                    $.showClsDetails(pipeline);
+                    $.showClsDetails(procedure);
                 }
     };
 
-    $.deletePipeline = function(pipeline) {
+    $.deletePipeline = function(procedure) {
         $.ajax({
-            url: plugin_prefix + "/routes/del-pipeline/"+pipeline,
+            url: plugin_prefix + "/routes/del-procedure/"+procedure,
             type: 'DELETE',
             data: "{}",
             contentType: "application/json",
@@ -242,7 +242,7 @@ $(function() {
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR);
-                alert("Error when deleting pipeline: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
+                alert("Error when deleting procedure: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
                 $.refreshClsList();
             },
         });
@@ -284,21 +284,21 @@ $(function() {
         });
     };
 
-    $.showClsDetails = function(pipeline) {
+    $.showClsDetails = function(procedure) {
         $("#clsDetail").removeClass("hidden");
         $("#existingPipeline").addClass("hidden");
 
         $.ajax({
-            url: plugin_prefix + "/routes/cls-details/"+pipeline,
+            url: plugin_prefix + "/routes/cls-details/"+procedure,
             dataType: "json",
             error: function (jqXHR, textStatus, errorThrown) {
                     console.log(jqXHR);
                     alert("Unable to load cls details: " + jqXHR.status + textStatus);
                   },
             success: function(data) {
-                $("#clsConfArea").val(JSON.stringify(data["pipeline"]["config"],null,4));
-                $("#clsDetailsNewRunContainer").empty().append('<button class="btn btn-primary" onClick="$.newRun(\''+pipeline+'\', false);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>  ')
-                    .append('<button class="btn btn-primary" onClick="$.showClsDetails(\''+pipeline+'\');"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Refresh</button>');
+                $("#clsConfArea").val(JSON.stringify(data["procedure"]["config"],null,4));
+                $("#clsDetailsNewRunContainer").empty().append('<button class="btn btn-primary" onClick="$.newRun(\''+procedure+'\', false);"><span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> New run</button>  ')
+                    .append('<button class="btn btn-primary" onClick="$.showClsDetails(\''+procedure+'\');"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Refresh</button>');
 
                 // if we don't have runs, add UX to run one
                 $("#latestClsRun").empty();
@@ -309,10 +309,10 @@ $(function() {
                     lastRun = data["runs"][data["runs"].length-1]["id"];
                     $("#latestClsRun").append(lastRun);
                     $("#testRunId").val(parseInt(lastRun)+1);
-                    $("#testPipelineName").val(pipeline);
-                    $("#testDatasetId").val(data.pipeline.config.params.dataset.id);
-                    $("#testWhereExpr").val("NOT "+data.pipeline.config.params.where);
-                    $("#testLabelExpr").val(data.pipeline.config.params.label);
+                    $("#testPipelineName").val(procedure);
+                    $("#testDatasetId").val(data.procedure.config.params.dataset.id);
+                    $("#testWhereExpr").val("NOT "+data.procedure.config.params.where);
+                    $("#testLabelExpr").val(data.procedure.config.params.label);
                     console.log("hi", data);
 
                     for(var idx = 0; idx < data["runs"].length; idx++) {
@@ -560,7 +560,7 @@ $(function() {
             url: plugin_prefix + "/routes/runeval",
             type: 'PUT',
             data: JSON.stringify({
-                "pipeline_name": $("#testPipelineName").val(),
+                "procedure_name": $("#testPipelineName").val(),
                 "run_id":        $("#testRunId").val(),
                 "testset_id":    $("#testDatasetId").val(),
                 "where":         $("#testWhereExpr").val(),
@@ -574,7 +574,7 @@ $(function() {
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR);
-                alert("Error when posting accuracy pipeline run: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
+                alert("Error when posting accuracy procedure run: " + jqXHR.status + textStatus + "\n" + jqXHR.responseText);
             },
         });
         
@@ -1073,7 +1073,7 @@ Classifier details
 
       <button type="button" class="btn btn-primary" id="createButton">Create</button>
 </form> 
-</span> <!-- end of new pipeline -->
+</span> <!-- end of new procedure -->
 <br><br>
 
 
