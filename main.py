@@ -170,7 +170,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         print mldb.perform("DELETE", str("/v1/functions/" + clsFunctionName), [], {})
         applyFunctionConfig = {
             "id": str(clsFunctionName),
-            "type": "classifier.apply",
+            "type": "classifier",
             "params": {
                 "classifierModelUri": str(procedure_conf["config"]["params"]["classifierModelUri"])
             }
@@ -181,7 +181,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         testClsPipeName = procedureRunName + "-" + now
         testClsProcedureConfig = {
             "id": str(testClsPipeName),
-            "type": "accuracy",
+            "type": "classifier.test",
             "params": {
                 "dataset": { "id": str(payload["testset_id"]) },
                 "output": {
@@ -224,7 +224,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
             # get the piepline details
             rez = mldb.perform("GET", str("/v1/procedures/%s" % procedure), [], {})
             resp = json.loads(rez["response"])
-            if "type" in resp and resp["type"] != "classifier":
+            if "type" in resp and resp["type"] != "classifier.train":
                 continue
             if resp["id"].startswith("cls-plugin-"): continue
 
