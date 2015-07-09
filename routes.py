@@ -138,7 +138,7 @@ if rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
     print mldb.perform("DELETE", str("/v1/functions/" + clsFunctionName), [], {})
     applyFunctionConfig = {
         "id": str(clsFunctionName),
-        "type": "classifier.apply",
+        "type": "classifier",
         "params": {
             "classifierModelUri": str(procedure_conf["config"]["params"]["classifierModelUri"])
         }
@@ -149,7 +149,7 @@ if rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
     testClsPipeName = procedureRunName + "-" + now
     testClsProcedureConfig = {
         "id": str(testClsPipeName),
-        "type": "accuracy",
+        "type": "classifier.test",
         "params": {
             "dataset": { "id": str(payload["testset_id"]) },
             "output": {
@@ -194,7 +194,7 @@ if rp.verb == "GET" and rp.remaining == "/classifier-list":
         rez = mldb.perform("GET", str("/v1/procedures/%s" % procedure), [], {})
         mldb.log(str(rez))
         resp = json.loads(rez["response"])
-        if "type" in resp and resp["type"] != "classifier":
+        if "type" in resp and resp["type"] != "classifier.train":
             continue
         #if resp["id"].startswith("cls-plugin-"): continue
 
