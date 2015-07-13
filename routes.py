@@ -3,7 +3,7 @@
 ##  Handle custom routes
 ######################
 print "Handling route in python"
-import json, re, datetime, csv
+import json, re, datetime, csv, urllib
 
 rp = mldb.plugin.rest_params
 
