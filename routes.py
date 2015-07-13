@@ -140,7 +140,7 @@ if rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
         "id": str(clsFunctionName),
         "type": "classifier",
         "params": {
-            "classifierModelUri": str(procedure_conf["config"]["params"]["classifierModelUri"])
+            "modelFileUrl": str(procedure_conf["config"]["params"]["modelFileUrl"])
         }
     }
     print mldb.perform("PUT", str("/v1/functions/"+clsFunctionName), [], applyFunctionConfig)
