@@ -110,7 +110,7 @@ if rp.verb == "GET" and rp.remaining.startswith("/cls-details"):
                             "runs": resp_all_run})
 
 if rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
-    payload = json.loads(payload)
+    payload = json.loads(rp.payload)
     if not "procedure_name" in payload:
         print payload
         raise Exception("missing key in payload!")
