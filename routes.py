@@ -223,6 +223,8 @@ elif rp.verb == "GET" and rp.remaining == "/classifier-list":
             "runs": runs,
             "last_run": _decode_dict(resp_last_run)
         })
+    mldb.log(str(procedures))
+
     mldb.plugin.set_return(procedures)
 
 elif rp.verb == "GET" and rp.remaining == "/cls-presets":
