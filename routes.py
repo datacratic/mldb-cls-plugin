@@ -61,8 +61,8 @@ if rp.verb == "GET" and rp.remaining == "/dataset-details":
         })
 
     mldb.plugin.set_return(datasets)
-
-if rp.verb == "GET" and rp.remaining.startswith("/cls-details"):
+    
+elif rp.verb == "GET" and rp.remaining.startswith("/cls-details"):
     procedure_name = rp.remaining.split("/")[-1]
     rez = mldb.perform("GET", "/v1/procedures/"+procedure_name, [], {})
     if rez["statusCode"] == 404:
@@ -109,7 +109,7 @@ if rp.verb == "GET" and rp.remaining.startswith("/cls-details"):
     mldb.plugin.set_return({"procedure": procedure_details,
                             "runs": resp_all_run})
 
-if rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
+elif rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
     payload = json.loads(rp.payload)
     if not "procedure_name" in payload:
         print payload
@@ -167,7 +167,7 @@ if rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
 
     mldb.plugin.set_return("OK!")
 
-if rp.verb == "GET" and rp.remaining.startswith("/roccurve"):
+elif rp.verb == "GET" and rp.remaining.startswith("/roccurve"):
     dataset_name = rp.remaining.split("/")[-1]
     rez = mldb.perform("GET", "/v1/datasets/"+dataset_name+"/query", [], {})
     if rez["statusCode"] == 404:
@@ -185,7 +185,7 @@ if rp.verb == "GET" and rp.remaining.startswith("/roccurve"):
     mldb.plugin.set_return(new_curve)
 
 
-if rp.verb == "GET" and rp.remaining == "/classifier-list":
+elif rp.verb == "GET" and rp.remaining == "/classifier-list":
     rez = mldb.perform("GET", "/v1/procedures", [], {})
     mldb.log(str(rez))
     procedures = []
@@ -225,7 +225,7 @@ if rp.verb == "GET" and rp.remaining == "/classifier-list":
         })
     mldb.plugin.set_return(procedures)
 
-if rp.verb == "GET" and rp.remaining == "/cls-presets":
+elif rp.verb == "GET" and rp.remaining == "/cls-presets":
     lines2 = [x.strip() for x in open(mldb.plugin.get_plugin_dir() +"/classifier-config.txt") if len(x.strip())>0 and x[0] != "#"]
 
     reobj = re.compile(r"([\w]+) \{", re.IGNORECASE)
@@ -273,7 +273,7 @@ if rp.verb == "GET" and rp.remaining == "/cls-presets":
     print configs
     mldb.plugin.set_return(configs)
 
-if rp.verb == "DELETE" and rp.remaining.startswith("/del-procedure/"):
+elif rp.verb == "DELETE" and rp.remaining.startswith("/del-procedure/"):
     remaining_split = rp.remaining.split("/")
     if len(remaining_split) != 3:
         raise Exception("Need to specify procedure name!")
@@ -302,7 +302,7 @@ if rp.verb == "DELETE" and rp.remaining.startswith("/del-procedure/"):
 
     mldb.plugin.set_return(deleteLog)
 
-if rp.verb == "POST" and rp.remaining == "/loadcsv":
+elif rp.verb == "POST" and rp.remaining == "/loadcsv":
     payload = json.loads(rp.payload)
     reader = csv.DictReader(open(urllib.urlretrieve(payload["url"])[0]))
     dataset = mldb.create_dataset(dict(id=str(payload["name"]), type="beh.mutable"))
