@@ -157,7 +157,7 @@ elif rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
                 "type": "beh.mutable",
             },
             "where": str(payload["where"]),
-            "score": str("APPLY FUNCTION \"%s\" WITH (object(SELECT %s) AS features) EXTRACT(score)" %
+            "score": str("@\"%s\"({%s} AS features)[score]" %
                 (clsFunctionName, procedure_conf["config"]["params"]["select"])),
             "label": str(payload["label"]),
         }
