@@ -154,7 +154,7 @@ elif rp.verb == "PUT" and rp.remaining.startswith("/runeval"):
             "dataset": { "id": str(payload["testset_id"]) },
             "output": {
                 "id": str("%s-rez" % testClsPipeName),
-                "type": "beh.mutable",
+                "type": "sparse.mutable",
             },
             "where": str(payload["where"]),
             "score": str("@\"%s\"({%s} AS features)[score]" %
@@ -307,7 +307,7 @@ elif rp.verb == "DELETE" and rp.remaining.startswith("/del-procedure/"):
 elif rp.verb == "POST" and rp.remaining == "/loadcsv":
     payload = json.loads(rp.payload)
     reader = csv.DictReader(open(urllib.urlretrieve(payload["url"])[0]))
-    dataset = mldb.create_dataset(dict(id=str(payload["name"]), type="beh.mutable"))
+    dataset = mldb.create_dataset(dict(id=str(payload["name"]), type="sparse.mutable"))
     for i, row in enumerate(reader):
         values = []
         row_name = i
