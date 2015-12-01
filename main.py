@@ -9,7 +9,7 @@ mldb.perform("DELETE", "/v1/datasets/toy", [], {})
 
 # create a mutable beh dataset
 datasetConfig = {
-        "type": "beh.mutable",
+        "type": "sparse.mutable",
         "id": "toy",
     }
 
